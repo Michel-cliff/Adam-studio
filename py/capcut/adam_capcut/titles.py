@@ -40,7 +40,7 @@ def title_texts(el: dict, width: int, height: int, fps: int) -> list[dict]:
             px = fit_font_size(line["text"], width * 0.9, width * 0.14 * line.get("sizeScale", 1))
             reveal = frame(phase["startMs"] + REVEAL_DELAY_MS + i * STAGGER_MS)
             rows.append({"role": "line", "text": line["text"], "px": px, "gap": 0, "box": line.get("box", False),
-                         "color": "ink", "intro": REVEAL_MS, "from": min(p_to - 1, max(p_from, reveal))})
+                         "color": "ink" if line.get("box", False) else "text", "intro": REVEAL_MS, "from": min(p_to - 1, max(p_from, reveal))})
         top = el["y"] * height - sum(r["px"] + r["gap"] for r in rows) / 2
         for r in rows:
             out.append({"role": r["role"], "text": r["text"], "px": r["px"], "box": r["box"], "color": r["color"], "intro": r["intro"],

@@ -70,3 +70,8 @@ export function colorOf(name: string, style: Pick<Style, "colors">): string {
   const colors = style.colors as Record<string, string>;
   return colors[name] ?? name;
 }
+
+/** Title lines are drawn in the text color; boxed lines in ink on the accent box (the lab's v2 title). */
+export function titleLineColor(box: boolean, style: Pick<Style, "colors">): string {
+  return box ? style.colors.ink : style.colors.text;
+}

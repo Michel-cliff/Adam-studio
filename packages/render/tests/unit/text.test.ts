@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { presetStyle } from "../../src/lib/presets";
-import { captionLines, colorOf, exitOpacity, fitFontSize, glitchAmount, lineReveal } from "../../src/lib/text";
+import { captionLines, colorOf, exitOpacity, fitFontSize, glitchAmount, lineReveal, titleLineColor } from "../../src/lib/text";
 
 describe("captionLines", () => {
   it("splits lines and highlighted spans, accents included", () => {
@@ -62,5 +62,13 @@ describe("presetStyle", () => {
   it("ignores unknown or missing presets", () => {
     expect(presetStyle(undefined, 0, 0)).toEqual({});
     expect(presetStyle("laser", 0, 0)).toEqual({});
+  });
+});
+
+describe("titleLineColor", () => {
+  const style = { colors: { text: "#FFFFFF", highlight: "#FFD100", accent: "#FF6B35", ink: "#0E0C0A" } };
+  it("draws plain title lines in the text color and boxed lines in ink on the accent box", () => {
+    expect(titleLineColor(false, style)).toBe("#FFFFFF");
+    expect(titleLineColor(true, style)).toBe("#0E0C0A");
   });
 });

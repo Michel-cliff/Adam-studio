@@ -1,7 +1,7 @@
 import type { FC } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Style, TimelineElement, TitleProps } from "@adam-studio/model";
-import { exitOpacity, fitFontSize, glitchAmount, lineReveal } from "../lib/text";
+import { exitOpacity, fitFontSize, glitchAmount, lineReveal, titleLineColor } from "../lib/text";
 import { TITLE_FONT } from "../props";
 
 export const Title: FC<{ el: TimelineElement; style: Style }> = ({ el, style }) => {
@@ -36,7 +36,7 @@ export const Title: FC<{ el: TimelineElement; style: Style }> = ({ el, style }) 
               key={i}
               style={{
                 fontFamily: TITLE_FONT, fontSize: size, lineHeight: 1, letterSpacing: "-0.035em", whiteSpace: "nowrap",
-                color: style.colors.ink,
+                color: titleLineColor(line.box, style),
                 backgroundColor: line.box ? style.colors.accent : undefined,
                 padding: line.box ? `0 ${size * 0.15}px` : undefined,
                 transform: `translateY(${(1 - r) * size * 0.3}px)`,
