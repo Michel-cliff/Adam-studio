@@ -41,4 +41,6 @@ Creator comparison ("1015 adam" next to "1015 edit v2" in CapCut, and `renders/1
 | Captions (English, yellow words, size) | to fill |
 | HUD and sounds | to fill |
 
-Decision: filled in with the creator (accepted, or the gaps to fix before sub-project 2).
+Decision: accepted by the creator on 2026-10-16 ("solid start"); the rows above were not detailed one by one.
+Effects (title reveal, slides, HUD animations) move a bit too fast: the creator tunes them per project while
+prompting. The title stays in front, editable in CapCut.
