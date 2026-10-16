@@ -313,8 +313,13 @@ Remotion Studio is the preview until the web app exists.
 
 | File | Used for | Required when |
 |---|---|---|
-| `edit.mp4` | export (H.264, canvas-sized, audio) | always for video assets |
-| `proxy.mp4` | preview (half resolution) | preview only, falls back to `edit.mp4` |
+| `edit.mp4` | export (H.264, canvas-sized, audio, a keyframe every second, no B-frames) | always for video assets |
+| `proxy.mp4` | preview (half resolution, same GOP rule) | preview only, falls back to `edit.mp4` |
+
+The GOP rule is not optional: with x264's default long GOP and B-frames, Remotion's frame cache loses
+frames during parallel renders ("No frame found at position"), found while building the renderer. For
+the same reason the renderer sizes its parallel tabs to the free memory, so the frame cache (half the
+free memory) holds one second of frames per video source for every tab.
 | `transcript.json` | words, merged into `project.json` on import | transcript editing |
 | `silences.json` | pause lint and auto-cut suggestions | optional |
 | `subject.webm` | subject layer (VP9 alpha, same timing as the asset) | behind-subject elements or subject slides on this asset |

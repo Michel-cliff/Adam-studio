@@ -28,12 +28,14 @@ export function makeSynthetic(dir: string, opts: { withProposal?: boolean } = {}
   const src = join(dir, "assets-src");
   mkdirSync(cache, { recursive: true });
   mkdirSync(src, { recursive: true });
+  // Cache contract: edit.mp4 has a keyframe every second and no B-frames. With long GOPs, Remotion's
+  // frame cache loses frames during parallel renders ("No frame found at position").
   ffmpeg([
     "-f", "lavfi", "-i", "color=c=red:s=540x1920:r=30:d=4",
     "-f", "lavfi", "-i", "color=c=blue:s=540x1920:r=30:d=4",
     "-f", "lavfi", "-i", "sine=frequency=440:duration=4",
     "-filter_complex", "[0:v][1:v]hstack=inputs=2[v]", "-map", "[v]", "-map", "2:a",
-    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", join(cache, "edit.mp4"),
+    "-c:v", "libx264", "-g", "30", "-bf", "0", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", join(cache, "edit.mp4"),
   ]);
   ffmpeg([
     "-f", "lavfi", "-i", "color=c=black:s=1080x1920:r=30:d=4",
