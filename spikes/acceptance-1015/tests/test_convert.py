@@ -9,10 +9,10 @@ from convert import (
 )
 
 TRANSCRIPT = [
-    {"clip": 1, "words": [{"w": " A", "start": 0.4, "end": 0.68}, {"w": " 23", "start": 0.68, "end": 0.88},
-                          {"w": " ans", "start": 0.88, "end": 1.12}, {"w": " je", "start": 1.12, "end": 1.18}]},
-    {"clip": 2, "words": [{"w": " Pour", "start": 0.7, "end": 0.9}, {"w": " le", "start": 2.2, "end": 2.4},
-                          {"w": " contexte", "start": 2.9, "end": 3.4}]},
+    {"clip": 1, "words": [{"w": " Le", "start": 0.4, "end": 0.68}, {"w": " chat", "start": 0.68, "end": 0.88},
+                          {"w": " dort", "start": 0.88, "end": 1.12}, {"w": " ici", "start": 1.12, "end": 1.18}]},
+    {"clip": 2, "words": [{"w": " Hier", "start": 0.7, "end": 0.9}, {"w": " il", "start": 2.2, "end": 2.4},
+                          {"w": " pleuvait", "start": 2.9, "end": 3.4}]},
 ]
 KEEPS = [{"clip": 1, "start": 0.5, "end": 1.2, "transition": "Blur"}, {"clip": 2, "start": 0.6, "end": 1.3}, {"clip": 2, "start": 2.1, "end": 3.5}]
 LOOK = {"punch_in": 1.08, "drift": 0.004}
@@ -30,7 +30,7 @@ def story():
 
 
 def test_words_get_ids_text_and_milliseconds(words):
-    assert words["c01"][1] == {"id": "c01.w1", "text": "23", "startMs": 680, "endMs": 880}
+    assert words["c01"][1] == {"id": "c01.w1", "text": "chat", "startMs": 680, "endMs": 880}
     assert [w["id"] for w in words["c02"]] == ["c02.w0", "c02.w1", "c02.w2"]
 
 
@@ -61,12 +61,12 @@ def test_anchor_in_a_cut_part_is_an_error(words, story):
 
 def test_captions_are_anchored_on_the_words_they_cover(words):
     caps, skipped = captions_from_plan([
-        {"clip": 1, "start": 0.55, "end": 1.12, "text": "At 23,", "yellow": ["23"]},
+        {"clip": 1, "start": 0.55, "end": 1.12, "text": "The cat,", "yellow": ["cat"]},
         {"clip": 2, "start": 0.8, "end": 1.0, "text": "For"},
         {"clip": 2, "start": 1.0, "end": 2.0, "text": "nothing here"},
     ], words)
     assert caps == [
-        {"words": ["c01.w1", "c01.w2"], "text": "At 23,", "lang": "en", "highlight": ["23"]},
+        {"words": ["c01.w1", "c01.w2"], "text": "The cat,", "lang": "en", "highlight": ["cat"]},
         {"words": ["c02.w0", "c02.w0"], "text": "For", "lang": "en"},
     ]
     assert skipped == ["nothing here"]

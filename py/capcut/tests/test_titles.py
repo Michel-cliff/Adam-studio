@@ -20,9 +20,9 @@ def test_title_lines_are_stacked_like_the_renderer_and_start_with_their_reveal()
     texts = title_texts(TITLE, 1080, 1920, 30)
     assert [(t["role"], t["text"], t["from"], t["to"], t["box"], t["color"]) for t in texts] == [
         ("kicker", "EPISODE 3", 90, 102, False, "accent"),
-        ("line", "QUI VEUT", 92, 102, False, "text"),
+        ("line", "QUI VEUT", 92, 102, False, "ink"),
         ("line", "M'EMBAUCHER ?", 97, 102, True, "ink"),
-        ("line", "PERSONNE", 104, 114, False, "text"),
+        ("line", "PERSONNE", 104, 114, False, "ink"),
     ]
     assert [t["px"] for t in texts] == pytest.approx([32.4, 151.2, 124, 181.44])
     assert [t["y"] for t in texts] == pytest.approx([433 / 1920, 535.6 / 1920, 673.2 / 1920, 0.3])
