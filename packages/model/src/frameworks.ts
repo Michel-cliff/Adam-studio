@@ -1,0 +1,79 @@
+export interface FrameworkBeat {
+  role: string;
+  description: string;
+  /** Upper bound for this beat's duration, checked by lint(). */
+  maxMs?: number;
+}
+
+export interface Framework {
+  id: string;
+  name: string;
+  beats: FrameworkBeat[];
+  /** Checks that need judgment (done by Claude, not lint), e.g. "closure-ties-to-hook". */
+  rules: string[];
+}
+
+export const FRAMEWORKS: Framework[] = [
+  {
+    id: "hrst",
+    name: "Hook, Relatable, Show, Takeaway",
+    beats: [
+      { role: "hook", description: "Stop the swipe in the first seconds with a visual or text hook.", maxMs: 3000 },
+      { role: "relatable", description: "Name the situation or pain the viewer recognizes in their own life." },
+      { role: "show", description: "Show the thing itself: the demo, the example, the proof." },
+      { role: "takeaway", description: "Leave one clear lesson or call to action." },
+    ],
+    rules: [],
+  },
+  {
+    id: "bab",
+    name: "Before, After, Bridge",
+    beats: [
+      { role: "before", description: "Paint the situation before: the problem as the viewer lives it." },
+      { role: "after", description: "Show the situation after: the result, the relief, the transformation." },
+      { role: "bridge", description: "Explain how to get from before to after." },
+    ],
+    rules: [],
+  },
+  {
+    id: "soar",
+    name: "Situation, Obstacle, Action, Results",
+    beats: [
+      { role: "situation", description: "Frame the current context, background, or personal story." },
+      { role: "obstacle", description: "Identify the core problem, barrier, or failure." },
+      { role: "action", description: "Describe the steps taken to fix or overcome it." },
+      { role: "results", description: "Showcase the final outcome or transformation to drive a lead or action." },
+    ],
+    rules: [],
+  },
+  {
+    id: "three-act",
+    name: "3-act structure (micro)",
+    beats: [
+      { role: "setup", description: "Hook the viewer in the first 3 seconds and state the premise." },
+      { role: "conflict", description: "Build tension, share a mistake, or explore the struggle." },
+      { role: "resolution", description: "Deliver the punchline, the lesson, or a strong call to action." },
+    ],
+    rules: [],
+  },
+  {
+    id: "open-loop",
+    name: "Open loop",
+    beats: [
+      { role: "curiosity", description: "Open with an intriguing statement, question, or unusual result." },
+      { role: "explore", description: "Walk through the process quickly while keeping the pacing tight." },
+      { role: "closure", description: "Tie the ending back to the opening hook so the video can replay seamlessly." },
+    ],
+    rules: ["closure-ties-to-hook"],
+  },
+];
+
+export const CORE_RULES = [
+  "The first 3 seconds: use a visual or text hook immediately to stop the swipe.",
+  "Edit ruthlessly: cut any pause, breath, or filler word that does not push the narrative forward.",
+  "Single focus: build the whole 15 to 60 second script around one idea, feeling, or lesson.",
+];
+
+export function getFramework(id: string): Framework | undefined {
+  return FRAMEWORKS.find((f) => f.id === id);
+}
