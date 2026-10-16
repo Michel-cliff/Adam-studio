@@ -28,13 +28,18 @@ export async function renderVideo(
   props: RenderProps,
   outFile: string,
   frameRange: number | [number, number] | [number, number][] | null = null,
+  opts: { transparent?: boolean } = {},
 ): Promise<void> {
   const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps: props });
   const concurrency = safeConcurrency({
     freeBytes: freemem(), cores: cpus().length, width: composition.width, height: composition.height, fps: composition.fps,
     videoSources: activeVideoSources(props.timeline),
   });
-  await renderMedia({ composition, serveUrl, codec: "h264", outputLocation: outFile, inputProps: props, frameRange, concurrency });
+  // Decision 0001: CapCut keeps the alpha of MOV ProRes 4444 (and ignores it in WebM).
+  const output = opts.transparent
+    ? ({ codec: "prores", proResProfile: "4444", pixelFormat: "yuva444p10le", imageFormat: "png", muted: true } as const)
+    : ({ codec: "h264" } as const);
+  await renderMedia({ composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, ...output });
 }
 
 export async function renderFrame(serveUrl: string, props: RenderProps, frame: number, outFile: string): Promise<void> {

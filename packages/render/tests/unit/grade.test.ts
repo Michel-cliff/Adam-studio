@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { audioVolume } from "../../src/lib/audio";
-import { gradeFilter, vignetteBackground, warmthMatrix } from "../../src/lib/grade";
+import { gradeFilter, vignetteBackground, warmthFilter, warmthMatrix } from "../../src/lib/grade";
 
 const neutral = { warmth: 0, contrast: 0, saturation: 0, brightness: 0, vignette: 0 };
 
@@ -43,5 +43,12 @@ describe("audioVolume", () => {
   });
   it("never exceeds 1", () => {
     expect(audioVolume({ ...item, volume: 3, fadeInMs: 0, fadeOutMs: 0 }, 10, 30)).toBe(1);
+  });
+});
+
+describe("warmthFilter", () => {
+  it("keeps only the warmth part of the grade, for stretches baked for CapCut", () => {
+    expect(warmthFilter({ ...neutral, warmth: 0.35, contrast: 0.1 }, "g")).toBe("url(#g)");
+    expect(warmthFilter({ ...neutral, contrast: 0.1 }, "g")).toBe("none");
   });
 });

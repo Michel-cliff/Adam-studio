@@ -6,15 +6,27 @@ import { ClipLayer } from "./components/ClipLayer";
 import { ElementLayer } from "./components/ElementLayer";
 import { SubjectLayer } from "./components/SubjectLayer";
 import { ensureFonts } from "./fonts";
-import { GRADE_FILTER_ID, gradeFilter, vignetteBackground, warmthMatrix } from "./lib/grade";
+import { GRADE_FILTER_ID, gradeFilter, vignetteBackground, warmthFilter, warmthMatrix } from "./lib/grade";
 import { slideWindows, subjectWindows } from "./lib/subject";
 import type { RenderProps } from "./props";
 
 export const Edit: FC<RenderProps> = (props) => {
   ensureFonts(props.fonts);
   const { timeline, media } = props;
+  const mode = props.mode ?? { kind: "full" };
+  if (mode.kind === "overlay") {
+    // Transparent background, only the listed front elements: a CapCut overlay.
+    return (
+      <AbsoluteFill>
+        <ElementLayer timeline={timeline} media={media} layer="front" only={mode.elements} />
+      </AbsoluteFill>
+    );
+  }
+  const full = mode.kind === "full";
   const grade = timeline.style.grade;
-  const filter = gradeFilter(grade, GRADE_FILTER_ID);
+  // Baked stretches keep only the warmth (the exporter warms the native videos alike): CapCut applies the
+  // rest of the grade over the whole main track, baked or native.
+  const filter = full ? gradeFilter(grade, GRADE_FILTER_ID) : warmthFilter(grade, GRADE_FILTER_ID);
   const slides = slideWindows(timeline);
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
@@ -30,10 +42,10 @@ export const Edit: FC<RenderProps> = (props) => {
       <AbsoluteFill style={{ filter }}>
         <SubjectLayer timeline={timeline} media={media} windows={subjectWindows(timeline)} slides={slides} />
       </AbsoluteFill>
-      {grade.vignette > 0 ? <AbsoluteFill style={{ background: vignetteBackground(grade.vignette) }} /> : null}
-      <ElementLayer timeline={timeline} media={media} layer="front" />
-      <Captions timeline={timeline} />
-      <AudioLayer timeline={timeline} media={media} />
+      {full && grade.vignette > 0 ? <AbsoluteFill style={{ background: vignetteBackground(grade.vignette) }} /> : null}
+      {full ? <ElementLayer timeline={timeline} media={media} layer="front" /> : null}
+      {full ? <Captions timeline={timeline} /> : null}
+      <AudioLayer timeline={timeline} media={media} clipAudioOnly={!full} />
     </AbsoluteFill>
   );
 };

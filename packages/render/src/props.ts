@@ -6,10 +6,18 @@ import type { Timeline } from "@adam-studio/model";
  */
 export type MediaFiles = { video?: string; subject?: string; plate?: string; file?: string; width?: number; height?: number };
 
+/**
+ * What to draw: everything (preview and export), the main track only (stretches baked for CapCut: clips,
+ * behind-subject elements, subject and clip audio, ungraded), or chosen front elements on a transparent
+ * background (CapCut overlays).
+ */
+export type RenderMode = { kind: "full" } | { kind: "bake" } | { kind: "overlay"; elements: string[] };
+
 export type RenderProps = {
   timeline: Timeline;
   media: Record<string, MediaFiles>;
   fonts: { caption: string; title: string };
+  mode?: RenderMode;
 };
 
 export const COMPOSITION_ID = "AdamEdit";

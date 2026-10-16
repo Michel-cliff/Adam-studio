@@ -24,6 +24,11 @@ export function gradeFilter(grade: Grade, svgId: string): string {
   return parts.length ? parts.join(" ") : "none";
 }
 
+/** Only the warmth part of the grade: CapCut applies brightness, contrast and saturation over baked stretches itself. */
+export function warmthFilter(grade: Grade, svgId: string): string {
+  return grade.warmth !== 0 ? `url(#${svgId})` : "none";
+}
+
 export function vignetteBackground(amount: number): string {
   if (amount <= 0) return "none";
   return `radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,${round(0.65 * amount)}) 100%)`;
