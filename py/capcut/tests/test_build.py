@@ -3,6 +3,7 @@ import json
 import pytest
 
 from adam_capcut.export import export
+from adam_capcut.build import color_of
 from helpers import FONT_ID, TITLE_FONT_ID, center_pixel, content_of, report_of
 
 
@@ -48,7 +49,7 @@ def test_sound_effects_keep_volume_and_fades(lab, project, tmp_path):
     _, profiles = lab
     content = content_of(export(project, name="sounds", projects_root=tmp_path, prepare=False), profiles)
     audio = [t for t in content["tracks"] if t["type"] == "audio"]
-    assert [len(t["segments"]) for t in audio] == [1]
+    assert [len(t["segments"]) for t in audio] == [2]
     assert audio[0]["segments"][0]["volume"] == 0.5
     assert [(f["fade_in_duration"], f["fade_out_duration"]) for f in content["materials"]["audio_fades"]] == [(50000, 100000)]
     assert report_of(project, "sounds")["beep"]["status"] == "native"
@@ -64,3 +65,20 @@ def test_vignette_is_native_and_warmth_is_applied_to_the_copied_takes(lab, proje
     assert r1 - b1 >= 8, "the copied take is warmer"
     r = report_of(project, "look")
     assert (r["grade"]["status"], r["grade.vignette"]["status"], r["grade.warmth"]["status"]) == ("native", "native", "baked")
+
+
+def test_a_sound_longer_than_its_file_is_shortened_to_the_file(lab, project, tmp_path):
+    _, profiles = lab
+    content = content_of(export(project, name="long sound", projects_root=tmp_path, prepare=False), profiles)
+    segs = [s for t in content["tracks"] if t["type"] == "audio" for s in t["segments"]]
+    whoosh = next(s for s in segs if s["target_timerange"]["start"] == 2000000)
+    assert whoosh["target_timerange"]["duration"] <= 301000
+    assert whoosh["source_timerange"]["duration"] == whoosh["target_timerange"]["duration"]
+    assert "shortened" in report_of(project, "long sound")["whoosh"]["reason"]
+
+
+def test_style_color_names_and_css_colors():
+    colors = {"text": "#FFFFFF", "highlight": "#FFD100", "accent": "#FF6B35", "ink": "#0E0C0A"}
+    assert color_of("accent", colors) == "#FF6B35"
+    assert color_of("white", colors) == "#FFFFFF"
+    assert color_of("#000", colors) == "#000000"

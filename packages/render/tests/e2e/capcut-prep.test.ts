@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -33,6 +33,8 @@ describe("adam capcut-prep", () => {
     expect(plan.overlays).toEqual([{ elementId: "t1", fromFrame: 75, durationFrames: 15, file: "overlay/o01.mov" }]);
     expect(plan.entries.map((e: { id: string }) => e.id)).toEqual(["transition:c1", "behind", "t1"]);
     expect(frames(join(out, "bake", "b01.mp4"))).toBe(18);
+    // Same color encoding as the takes (limited range, BT.709): no brightness jump at the bake edges in CapCut.
+    expect(ffprobe(["-select_streams", "v", "-show_entries", "stream=pix_fmt,color_space", "-of", "default=nw=1:nk=1", join(out, "bake", "b01.mp4")]).split(/\r?\n/)).toEqual(["yuv420p", "bt709"]);
     expect(hasAudio(join(out, "bake", "b01.mp4"))).toBe(true);
     expect(pixFmt(join(out, "overlay", "o01.mov"))).toMatch(/^yuva444/);
     expect(existsSync(plan.sources.s.video)).toBe(true);
@@ -40,6 +42,17 @@ describe("adam capcut-prep", () => {
     expect(existsSync(plan.fonts.caption.path)).toBe(true);
     expect(plan.fonts.caption.resourceId).toBeNull();
     expect(JSON.parse(readFileSync(join(out, "timeline.json"), "utf8")).durationFrames).toBe(120);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("never clears an --out folder that holds other files", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "adam capcut-"));
+    makeSynthetic(dir);
+    const precious = join(dir, "precious");
+    mkdirSync(precious);
+    writeFileSync(join(precious, "keep.txt"), "x");
+    await expect(capcutPrepCommand(dir, { force: false, out: precious })).rejects.toThrow("keep.txt");
+    expect(readFileSync(join(precious, "keep.txt"), "utf8")).toBe("x");
     rmSync(dir, { recursive: true, force: true });
   });
 

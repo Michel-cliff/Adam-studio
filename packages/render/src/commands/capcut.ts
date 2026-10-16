@@ -1,9 +1,10 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import { resolve } from "@adam-studio/model";
 import { bundleWithMedia, renderVideo } from "../engine";
 import { NATIVE_FRONT_KINDS, planCapcut } from "../lib/capcut";
 import { planMedia, type MediaPlan } from "../media";
+import { clearPrepFolder } from "../prep-folder";
 import { loadProject } from "../project-io";
 import { lintGate } from "./render";
 
@@ -34,9 +35,7 @@ export async function capcutPrepCommand(projectDir: string, opts: { out?: string
   const media = planMedia(dir, project, timeline);
   const plan = planCapcut(timeline, opts.nativeKinds ? new Set(opts.nativeKinds) : NATIVE_FRONT_KINDS);
   const out = opts.out ? resolvePath(opts.out) : join(dir, "renders", "capcut");
-  rmSync(out, { recursive: true, force: true });
-  mkdirSync(join(out, "bake"), { recursive: true });
-  mkdirSync(join(out, "overlay"), { recursive: true });
+  clearPrepFolder(out);
   const bakes = plan.bakes.map((b) => ({ ...b, file: `bake/${b.id}.mp4` }));
   const overlays = plan.overlays.map((o, i) => ({ ...o, file: `overlay/o${String(i + 1).padStart(2, "0")}.mov` }));
   if (bakes.length > 0 || overlays.length > 0) {

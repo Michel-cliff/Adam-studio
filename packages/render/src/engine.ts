@@ -38,7 +38,8 @@ export async function renderVideo(
   // Decision 0001: CapCut keeps the alpha of MOV ProRes 4444 (and ignores it in WebM).
   const output = opts.transparent
     ? ({ codec: "prores", proResProfile: "4444", pixelFormat: "yuva444p10le", imageFormat: "png", muted: true } as const)
-    : ({ codec: "h264" } as const);
+    : // BT.709 limited range, like the takes: Remotion's default (full-range BT.601) shifts brightness in CapCut.
+      ({ codec: "h264", colorSpace: "bt709" } as const);
   await renderMedia({ composition, serveUrl, outputLocation: outFile, inputProps: props, frameRange, concurrency, ...output });
 }
 

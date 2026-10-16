@@ -2,6 +2,8 @@
 half-canvas offsets from the center with +Y up, scales relative to CapCut's fit-to-canvas size)."""
 import re
 
+from .errors import ExportError
+
 US = 1_000_000
 
 
@@ -19,8 +21,29 @@ def ms_us(ms: float) -> int:
     return round(ms * 1000)
 
 
+# CSS color names the renderer accepts and styles are likely to use.
+CSS_COLORS = {
+    "white": "#FFFFFF", "black": "#000000", "red": "#FF0000", "green": "#008000", "lime": "#00FF00", "blue": "#0000FF",
+    "yellow": "#FFFF00", "orange": "#FFA500", "gray": "#808080", "grey": "#808080", "magenta": "#FF00FF",
+    "fuchsia": "#FF00FF", "cyan": "#00FFFF", "aqua": "#00FFFF", "purple": "#800080", "pink": "#FFC0CB",
+}
+_HEX = re.compile(r"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
+
+
+def to_hex(color: str) -> str:
+    """#RRGGBB from #RGB, #RRGGBB, #RRGGBBAA (alpha dropped) or a CSS color name."""
+    c = CSS_COLORS.get(color.strip().lower(), color.strip())
+    m = _HEX.match(c)
+    if not m:
+        raise ExportError(f'unsupported color "{color}": use #RRGGBB or a CSS color name')
+    digits = m.group(1)
+    if len(digits) == 3:
+        digits = "".join(d * 2 for d in digits)
+    return "#" + digits[:6].upper()
+
+
 def hex_rgb(color: str) -> tuple[float, float, float]:
-    c = color.lstrip("#")
+    c = to_hex(color).lstrip("#")
     return int(c[0:2], 16) / 255, int(c[2:4], 16) / 255, int(c[4:6], 16) / 255
 
 

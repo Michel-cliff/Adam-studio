@@ -5,7 +5,7 @@ from .layout import main_track
 from .media import probe
 from .titles import big_word_text, title_texts
 from .tracks import allocate
-from .units import cover_scale, crop_rect_at, crop_transform, hex_rgb, image_scale, ms_us, place, span_us, zoom_at
+from .units import cover_scale, crop_rect_at, crop_transform, hex_rgb, image_scale, ms_us, place, span_us, to_hex, zoom_at
 
 # CapCut font size per unit of text size as a fraction of the canvas width: the lab's captions were 10.5 for
 # about 0.052. Provisional, checked in CapCut (docs/decisions/0002-capcut-export-check.md).
@@ -21,7 +21,7 @@ TITLE_OUTRO_MS = 160
 
 def color_of(name: str, colors: dict) -> str:
     """A style color by name ("accent", "ink", "text", "highlight"), or the value itself (the renderer's colorOf)."""
-    return colors.get(name, name)
+    return to_hex(colors.get(name, name))
 
 def entry(id_: str, kind: str, status: str, reason: str) -> dict:
     return {"id": id_, "kind": kind, "status": status, "reason": reason}
@@ -104,8 +104,7 @@ class Builder:
             if framing.get("background", "blur") == "blur":
                 seg.add_background_filling("blur", 0.0625)
             else:
-                color = framing.get("color") or "#000000"
-                seg.add_background_filling("color", color=color if len(color) == 9 else f"{color}FF")
+                seg.add_background_filling("color", color=f"{to_hex(framing.get('color') or '#000000')}FF")
         return seg
 
 
@@ -235,16 +234,24 @@ class Builder:
             self.script.add_track(p.Track_type.audio, f"sfx{i + 1}")
         for a, k in zip(sfx, tracks):
             key = ("audio", a["asset"])
+            path = self.media["files"][a["asset"]]
             if key not in self.materials:
-                m = p.Audio_material(path=str(self.media["files"][a["asset"]]))
+                m = p.Audio_material(path=str(path))
                 self.script.add_material(m)
                 self.materials[key] = m
+                self.materials[("audio length", a["asset"])] = round(probe(path)[0] * 1_000_000)
             tr = self.span(a["fromFrame"], a["fromFrame"] + a["durationFrames"])
+            # Never past the end of the file: CapCut's handling of a source range beyond the media is unknown.
+            available = self.materials[("audio length", a["asset"])] - ms_us(a["sourceInMs"])
+            note = ""
+            if 0 < available < tr.duration:
+                tr = p.Timerange(tr.start, available)
+                note = f" (shortened to the file's length, {available // 1000} ms)"
             seg = p.Audio_segment(self.materials[key], tr, source_timerange=p.Timerange(ms_us(a["sourceInMs"]), tr.duration), volume=a["volume"])
             if a["fadeInMs"] or a["fadeOutMs"]:
                 seg.add_fade(ms_us(a["fadeInMs"]), ms_us(a["fadeOutMs"]))
             self.script.add_segment(seg, f"sfx{k + 1}")
-            self.entries.append(entry(a["id"], "sfx", "native", "audio segment"))
+            self.entries.append(entry(a["id"], "sfx", "native", "audio segment" + note))
 
     def look(self) -> None:
         p, g = self.p, self.tl["style"]["grade"]

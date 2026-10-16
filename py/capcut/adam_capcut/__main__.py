@@ -15,9 +15,12 @@ def main(argv: list[str] | None = None) -> int:
     ex.add_argument("--name", help="CapCut project name (default: the project name)")
     ex.add_argument("--projects-root", help="CapCut projects folder (default: CapCut Desktop's)")
     ex.add_argument("--skip-prepare", action="store_true", help="reuse renders/capcut from a previous prepare step")
+    ex.add_argument("--force", action="store_true", help="export even with lint errors (pending proposals)")
+    ex.add_argument("--replace", action="store_true", help="overwrite a project opened in CapCut since the last export")
     args = parser.parse_args(argv)
     try:
-        dest = export(Path(args.project_dir), name=args.name, projects_root=args.projects_root, prepare=not args.skip_prepare)
+        dest = export(Path(args.project_dir), name=args.name, projects_root=args.projects_root, prepare=not args.skip_prepare,
+                      force=args.force, replace=args.replace)
     except ExportError as e:
         print(e, file=sys.stderr)
         return 1

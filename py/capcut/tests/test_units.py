@@ -1,7 +1,9 @@
 import pytest
 
+from adam_capcut.errors import ExportError
+
 from adam_capcut.units import (
-    cover_scale, crop_rect_at, crop_transform, frame_us, hex_rgb, image_scale, ms_us, place, safe_name, span_us, warmth_filter, zoom_at,
+    cover_scale, crop_rect_at, crop_transform, frame_us, hex_rgb, image_scale, ms_us, place, safe_name, span_us, to_hex, warmth_filter, zoom_at,
 )
 
 PORTRAIT = (1080, 1920)
@@ -60,3 +62,13 @@ def test_safe_name_matches_the_renderer():
 
 def test_warmth_filter_is_the_renderer_color_matrix():
     assert warmth_filter(0.35) == "colorchannelmixer=rr=1.042:gg=1.007:bb=0.951"
+
+
+def test_colors_accept_short_hex_and_css_names_like_the_renderer():
+    assert to_hex("white") == "#FFFFFF"
+    assert to_hex("#000") == "#000000"
+    assert to_hex("#ff6b35") == "#FF6B35"
+    assert to_hex("#00000080") == "#000000"
+    assert hex_rgb("white") == (1.0, 1.0, 1.0)
+    with pytest.raises(ExportError, match="rgb"):
+        to_hex("rgb(1, 2, 3)")

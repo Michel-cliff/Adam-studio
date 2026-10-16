@@ -47,3 +47,23 @@ def test_names_the_lab_setting_when_pyjianyingdraft_is_missing(tmp_path, monkeyp
     assert lab_path() == tmp_path
     with pytest.raises(ExportError, match="ADAM_CAPCUT_LAB"):
         load_lab()
+
+
+def test_refuses_a_project_opened_in_capcut_since_the_export_unless_replace(tmp_path, template):
+    dest = prepare_project_dir(tmp_path, "demo", template)
+    (dest / "draft_content.json").write_text("{}")  # CapCut writes it when it opens a project
+    with pytest.raises(ExportError, match="opened in CapCut since"):
+        prepare_project_dir(tmp_path, "demo", template)
+    assert (dest / "draft_content.json").exists()
+    dest = prepare_project_dir(tmp_path, "demo", template, replace=True)
+    assert not (dest / "draft_content.json").exists()
+
+
+def test_replace_never_overrides_an_open_or_foreign_project(tmp_path, template):
+    dest = prepare_project_dir(tmp_path, "demo", template)
+    (dest / ".locked").touch()
+    with pytest.raises(ExportError, match="is open in CapCut"):
+        prepare_project_dir(tmp_path, "demo", template, replace=True)
+    (tmp_path / "mine").mkdir()
+    with pytest.raises(ExportError, match="was not created by Adam Studio"):
+        prepare_project_dir(tmp_path, "mine", template, replace=True)

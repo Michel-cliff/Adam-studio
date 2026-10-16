@@ -53,6 +53,8 @@ def timeline_dict(font: str) -> dict:
             {"id": "clip:c1", "asset": "s", "fromFrame": 0, "durationFrames": 60, "sourceInMs": 0, "volume": 1, "fadeInMs": 0, "fadeOutMs": 0},
             {"id": "clip:c2", "asset": "s", "fromFrame": 60, "durationFrames": 60, "sourceInMs": 2000, "volume": 0.8, "fadeInMs": 0, "fadeOutMs": 0},
             {"id": "beep", "asset": "b", "fromFrame": 30, "durationFrames": 9, "sourceInMs": 0, "volume": 0.5, "fadeInMs": 50, "fadeOutMs": 100},
+            # 1 s asked for a 0.3 s file: CapCut gets the file's length.
+            {"id": "whoosh", "asset": "b", "fromFrame": 60, "durationFrames": 30, "sourceInMs": 0, "volume": 1, "fadeInMs": 0, "fadeOutMs": 0},
         ],
         "orphans": [], "warnings": [],
         "style": {
