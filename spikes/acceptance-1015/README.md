@@ -5,7 +5,7 @@ and exports it to CapCut (spec section 12). Nothing personal lives in this folde
 write the project outside the repo.
 
 ```
-C:\Users\miche\ClaudeCapcut\.tools\Scripts\python.exe spikes/acceptance-1015/build_cache.py   # analysis cache (20 to 40 min)
+C:\Users\miche\ClaudeCapcut\.tools\Scripts\python.exe spikes/acceptance-1015/build_cache.py   # analysis cache (about 15 min on 12 CPU threads)
 py/capcut/.venv/Scripts/python spikes/acceptance-1015/make_project.py
 py/capcut/.venv/Scripts/python spikes/acceptance-1015/check_cache.py
 npm run adam -- render C:/Users/miche/AdamStudioProjects/1015
