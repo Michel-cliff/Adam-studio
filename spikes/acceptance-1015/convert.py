@@ -156,7 +156,7 @@ def style_1015(font: str) -> dict:
         "name": "Project Adam",
         "fonts": {"caption": indivisible, "title": indivisible},
         "colors": {"text": "#FFFFFF", "highlight": "#FFD100", "accent": "#FF6B35", "ink": "#0E0C0A"},
-        "grade": {"warmth": 0.6, "contrast": 0.1, "saturation": 0.12, "brightness": -0.02, "vignette": 0.25},
+        "grade": {"warmth": 0.3, "contrast": 0.1, "saturation": 0.12, "brightness": -0.02, "vignette": 0.25},
         "caption": {"size": 0.0525, "stroke": 0.08, "shadow": True, "maxCharsPerLine": 22, "intro": "miniZoom"},
         "slots": {"9:16": slots, "16:9": slots},
         "lint": {"9:16": {"minDurationMs": 15000, "maxDurationMs": 90000}, "16:9": {"minDurationMs": 15000, "maxDurationMs": 1200000}},
