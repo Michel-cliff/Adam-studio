@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { capcutPrepCommand } from "./commands/capcut";
 import { decideCommand } from "./commands/decide";
 import { renderCommand } from "./commands/render";
 import { reviewCommand } from "./commands/review";
@@ -13,7 +14,8 @@ const USAGE = `usage: npm run adam -- <command> <projectDir> [options]
   render <dir> [--out file.mp4] [--frames a-b] [--force]
   review <dir> [--step <step>]
   decide <dir> <proposalId> <A|B|C|reject|more> [--note "..."]
-  studio <dir>`;
+  studio <dir>
+  capcut-prep <dir> [--out folder] [--force]`;
 
 async function main(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -43,6 +45,9 @@ async function main(argv: string[]): Promise<void> {
       decideCommand(dir, id, decision, values.note);
       return;
     }
+    case "capcut-prep":
+      await capcutPrepCommand(dir, { out: values.out ? resolve(base, values.out) : undefined, force: values.force ?? false });
+      return;
     case "studio":
       studioCommand(dir);
       return;
