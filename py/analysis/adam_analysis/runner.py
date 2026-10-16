@@ -8,6 +8,8 @@ from . import manifest
 from .errors import AnalysisError
 from .probe import probe
 from .steps import edit as edit_step
+from .steps import silences as silences_step
+from .steps import transcript as transcript_step
 
 Ctx = dict  # {"fps": int, "lang": str | None}
 
@@ -26,8 +28,26 @@ def _proxy(cache: Path, source: Path, ctx: Ctx) -> None:
     tmp.replace(cache / "proxy.mp4")
 
 
-STEP_FUNCS: dict[str, Callable[[Path, Path, Ctx], None]] = {"edit": _edit, "proxy": _proxy}
-manifest.VERSIONS.update({"edit": edit_step.VERSION, "proxy": edit_step.VERSION})
+def _transcript(cache: Path, source: Path, ctx: Ctx) -> None:
+    info = json.loads((cache / "probe.json").read_text(encoding="utf-8"))
+    result = transcript_step.transcribe(cache / "edit.mp4", ctx["lang"], info["hasAudio"])
+    tmp = cache / "tmp-transcript.json"
+    tmp.write_text(json.dumps(result, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    tmp.replace(cache / "transcript.json")
+
+
+def _silences(cache: Path, source: Path, ctx: Ctx) -> None:
+    info = json.loads((cache / "probe.json").read_text(encoding="utf-8"))
+    words = json.loads((cache / "transcript.json").read_text(encoding="utf-8"))["words"]
+    result = silences_step.make_silences(cache / "edit.mp4", words, info["durationMs"], info["hasAudio"])
+    tmp = cache / "tmp-silences.json"
+    tmp.write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8")
+    tmp.replace(cache / "silences.json")
+
+
+STEP_FUNCS: dict[str, Callable[[Path, Path, Ctx], None]] = {"edit": _edit, "proxy": _proxy, "transcript": _transcript, "silences": _silences}
+manifest.VERSIONS.update({"edit": edit_step.VERSION, "proxy": edit_step.VERSION, "transcript": transcript_step.VERSION,
+                          "silences": silences_step.VERSION})
 
 
 def with_dependencies(steps: list[str]) -> list[str]:
