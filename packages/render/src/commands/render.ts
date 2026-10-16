@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import { lint, resolve, type Project, type Timeline } from "@adam-studio/model";
+import { ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderVideo } from "../engine";
 import { planMedia } from "../media";
 import { CliError, loadProject } from "../project-io";
@@ -26,9 +27,10 @@ export function lintGate(project: Project, timeline: Timeline, dir: string, forc
   }
 }
 
-export async function renderCommand(projectDir: string, opts: { out?: string; frames?: string; force: boolean }): Promise<string> {
+export async function renderCommand(projectDir: string, opts: { out?: string; frames?: string; force: boolean; analyze?: boolean }): Promise<string> {
   const { dir, project, style } = loadProject(projectDir);
   const timeline = resolve(project, style);
+  ensureAnalysis(dir, project, timeline, { analyze: opts.analyze ?? true });
   lintGate(project, timeline, dir, opts.force, "render");
   const plan = planMedia(dir, project, timeline);
   const serveUrl = await bundleWithMedia(plan, join(dir, "renders", ".bundle"));

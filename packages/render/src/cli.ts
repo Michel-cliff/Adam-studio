@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { capcutPrepCommand } from "./commands/capcut";
 import { decideCommand } from "./commands/decide";
-import { addCommand, newCommand } from "./commands/new";
+import { addCommand, analyzeCommand, newCommand } from "./commands/new";
 import { renderCommand } from "./commands/render";
 import { reviewCommand } from "./commands/review";
 import { studioCommand } from "./commands/studio";
@@ -18,7 +18,9 @@ const USAGE = `usage: npm run adam -- <command> <projectDir> [options]
   studio <dir>
   capcut-prep <dir> [--out folder] [--force]
   new <dir> <videos...> [--lang fr] [--format 9:16|16:9] [--style style.json] [--name name]
-  add <dir> <videos...> [--lang fr]`;
+  add <dir> <videos...> [--lang fr]
+  analyze <dir> [--assets c01,c02] [--steps subject,plate] [--force]
+  (render, review, studio and capcut-prep take --no-analyze)`;
 
 async function main(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -49,11 +51,14 @@ async function main(argv: string[]): Promise<void> {
     case "add":
       addCommand(dir, rest.map((v) => resolve(base, v)), { lang: values.lang });
       return;
+    case "analyze":
+      analyzeCommand(dir, { assets: values.assets, steps: values.steps, force: values.force ?? false, lang: values.lang });
+      return;
     case "render":
-      await renderCommand(dir, { out: values.out ? resolve(base, values.out) : undefined, frames: values.frames, force: values.force ?? false });
+      await renderCommand(dir, { out: values.out ? resolve(base, values.out) : undefined, frames: values.frames, force: values.force ?? false, analyze: !values["no-analyze"] });
       return;
     case "review":
-      await reviewCommand(dir, { step: values.step });
+      await reviewCommand(dir, { step: values.step, analyze: !values["no-analyze"] });
       return;
     case "decide": {
       const [id, decision] = rest;
@@ -62,10 +67,10 @@ async function main(argv: string[]): Promise<void> {
       return;
     }
     case "capcut-prep":
-      await capcutPrepCommand(dir, { out: values.out ? resolve(base, values.out) : undefined, force: values.force ?? false });
+      await capcutPrepCommand(dir, { out: values.out ? resolve(base, values.out) : undefined, force: values.force ?? false, analyze: !values["no-analyze"] });
       return;
     case "studio":
-      studioCommand(dir);
+      studioCommand(dir, { analyze: !values["no-analyze"] });
       return;
     default:
       throw new CliError(USAGE);

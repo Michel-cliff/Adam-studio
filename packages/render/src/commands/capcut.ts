@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import { resolve } from "@adam-studio/model";
+import { ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderVideo } from "../engine";
 import { NATIVE_FRONT_KINDS, planCapcut } from "../lib/capcut";
 import { planMedia, type MediaPlan } from "../media";
@@ -28,9 +29,10 @@ export function capcutSources(plan: MediaPlan): Record<string, Source> {
 }
 
 /** Renders what CapCut cannot do natively and writes the plan the Python exporter reads. */
-export async function capcutPrepCommand(projectDir: string, opts: { out?: string; force: boolean; nativeKinds?: string[] }): Promise<string> {
+export async function capcutPrepCommand(projectDir: string, opts: { out?: string; force: boolean; nativeKinds?: string[]; analyze?: boolean }): Promise<string> {
   const { dir, project, style } = loadProject(projectDir);
   const timeline = resolve(project, style);
+  ensureAnalysis(dir, project, timeline, { analyze: opts.analyze ?? true });
   lintGate(project, timeline, dir, opts.force, "export");
   const media = planMedia(dir, project, timeline);
   const plan = planCapcut(timeline, opts.nativeKinds ? new Set(opts.nativeKinds) : NATIVE_FRONT_KINDS);

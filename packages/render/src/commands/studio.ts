@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { resolve } from "@adam-studio/model";
+import { ensureAnalysis } from "../analysis";
 import { ENTRY } from "../engine";
 import { planMedia, prepareMedia } from "../media";
 import { loadProject } from "../project-io";
@@ -15,9 +16,10 @@ function remotionCli(): string {
 }
 
 /** Opens Remotion Studio on the project: the preview until the web app exists. */
-export function studioCommand(projectDir: string): void {
+export function studioCommand(projectDir: string, opts: { analyze?: boolean } = {}): void {
   const { dir, project, style } = loadProject(projectDir);
   const timeline = resolve(project, style);
+  ensureAnalysis(dir, project, timeline, { analyze: opts.analyze ?? true });
   const plan = planMedia(dir, project, timeline, { preview: true });
   const publicDir = join(dir, "renders", ".public");
   prepareMedia(plan, publicDir);

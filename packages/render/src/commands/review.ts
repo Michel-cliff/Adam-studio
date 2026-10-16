@@ -5,6 +5,7 @@ import {
   applyPatch, indexWords, layoutStory, msToFrame, resolve, wordOutput,
   type Project, type Proposal, type StepId, type Timeline,
 } from "@adam-studio/model";
+import { ensureAnalysis } from "../analysis";
 import { bundleWithMedia, renderFrame, renderVideo } from "../engine";
 import { expandEnv, mergePlans, planMedia, type MediaPlan } from "../media";
 import { loadProject } from "../project-io";
@@ -69,7 +70,7 @@ function makeSheet(stills: { file: string; text: string }[], fontFile: string, o
   execFileSync("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", `${labelled}${join_}`, "-map", map, "-frames:v", "1", out]);
 }
 
-export async function reviewCommand(projectDir: string, opts: { step?: string } = {}): Promise<string[]> {
+export async function reviewCommand(projectDir: string, opts: { step?: string; analyze?: boolean } = {}): Promise<string[]> {
   const { dir, project, style } = loadProject(projectDir);
   const targets = reviewTargets(project, opts.step);
   if (targets.length === 0) {
@@ -82,6 +83,7 @@ export async function reviewCommand(projectDir: string, opts: { step?: string } 
     for (const v of p.variants) {
       const timeline = resolve(project, style, { apply: { proposal: p.id, variant: v.key } });
       const applied = applyPatch(project, v.patch);
+      ensureAnalysis(dir, applied, timeline, { analyze: opts.analyze ?? true });
       jobs.push({ proposal: p, key: v.key, label: v.label, applied, timeline, plan: planMedia(dir, applied, timeline) });
     }
   }

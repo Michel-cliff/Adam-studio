@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve as resolvePath } from "node:path";
-import { parseProject, type ProjectInput } from "@adam-studio/model";
+import { parseProject, resolve, type ProjectInput } from "@adam-studio/model";
 import { CHEAP_STEPS, readTake, runAnalysis } from "../analysis";
+import { missingAnalysis } from "../media";
 import { CliError, formatErrors, loadProject } from "../project-io";
 import { addTakes, defaultStyle, findSystemFont, nextAssetIds } from "../takes";
 
@@ -41,4 +42,22 @@ export function addCommand(dir: string, videos: string[], opts: Opts): void {
   const { project } = loadProject(dir);
   const done = analyzeAndAdd(dir, project, videos, opts);
   console.log(`${dir}: ${done.assets!.length} takes`);
+}
+
+/** Runs the analysis for what the timeline needs, or for the asked assets and steps. */
+export function analyzeCommand(dir: string, opts: { assets?: string; steps?: string; force?: boolean; lang?: string }): void {
+  const { project, style } = loadProject(dir);
+  const videos = Object.fromEntries(project.assets.filter((a) => a.kind === "video").map((a) => [a.id, a.path]));
+  const wanted = opts.assets ? opts.assets.split(",") : Object.keys(videos);
+  for (const id of wanted) if (!videos[id]) throw new CliError(`no video asset "${id}" in the project`);
+  if (opts.steps) {
+    runAnalysis(dir, Object.fromEntries(wanted.map((id) => [id, videos[id]!])), opts.steps.split(","), { fps: project.canvas.fps, lang: opts.lang, force: opts.force });
+    return;
+  }
+  const missing = missingAnalysis(dir, project, resolve(project, style)).filter((m) => wanted.includes(m.asset));
+  for (const step of ["edit", "subject", "plate"] as const) {
+    const ids = missing.filter((m) => m.step === step).map((m) => m.asset);
+    if (ids.length) runAnalysis(dir, Object.fromEntries(ids.map((id) => [id, videos[id]!])), [step], { fps: project.canvas.fps, force: opts.force });
+  }
+  if (missing.length === 0) console.log("Nothing to analyze: the cache has what the edit needs.");
 }

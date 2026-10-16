@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Project, Timeline } from "@adam-studio/model";
+import { missingAnalysis } from "./media";
 import { CliError } from "./project-io";
 import type { Take } from "./takes";
 
@@ -39,4 +41,21 @@ export function readTake(projectDir: string, id: string, path: string): Take {
     probe: { durationMs: probe.durationMs, width: probe.width, height: probe.height, hasAudio: probe.sourceHasAudio ?? probe.hasAudio },
     transcript: { lang: transcript.lang, words: transcript.words },
   };
+}
+
+/** Runs the analysis the timeline still needs, or refuses with the command when analysis is off. */
+export function ensureAnalysis(projectDir: string, project: Project, timeline: Timeline,
+  opts: { analyze: boolean; run?: (dir: string, videos: Record<string, string>, steps: string[], o: { fps: number }) => void }): void {
+  const missing = missingAnalysis(projectDir, project, timeline);
+  if (missing.length === 0) return;
+  if (!opts.analyze) {
+    const list = missing.map((m) => `${m.asset} ${m.step}`).join(", ");
+    throw new CliError(`The cache lacks: ${list}. Run: npm run adam -- analyze ${projectDir}`);
+  }
+  const run = opts.run ?? runAnalysis;
+  const paths = new Map(project.assets.map((a) => [a.id, a.path]));
+  for (const step of ["edit", "subject", "plate"] as const) {
+    const ids = missing.filter((m) => m.step === step).map((m) => m.asset);
+    if (ids.length) run(projectDir, Object.fromEntries(ids.map((id) => [id, paths.get(id)!])), [step], { fps: project.canvas.fps });
+  }
 }

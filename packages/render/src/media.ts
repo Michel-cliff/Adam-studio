@@ -88,6 +88,23 @@ export function planMedia(projectDir: string, project: Project, timeline: Timeli
   return { files: [...files].map(([to, from]) => ({ from, to })), media, fonts };
 }
 
+/** Cache files the timeline needs that the analysis has not produced yet (edit for every clip asset, cut-out and plate where used). */
+export function missingAnalysis(projectDir: string, project: Project, timeline: Timeline): { asset: string; step: "edit" | "subject" | "plate" }[] {
+  const has = (asset: string, file: string) => existsSync(join(projectDir, "cache", asset, file));
+  const out: { asset: string; step: "edit" | "subject" | "plate" }[] = [];
+  const videos = new Set<string>();
+  for (const c of timeline.clips) {
+    videos.add(c.asset);
+    if (c.framing.mode === "split") videos.add(c.framing.asset);
+  }
+  for (const id of videos) if (!has(id, "edit.mp4")) out.push({ asset: id, step: "edit" });
+  for (const id of new Set(subjectWindows(timeline).map((w) => w.asset))) if (!has(id, "subject.webm")) out.push({ asset: id, step: "subject" });
+  const clipAsset = new Map(timeline.clips.map((c) => [c.id, c.asset]));
+  for (const id of new Set(slideWindows(timeline).map((w) => clipAsset.get(w.clipId)!))) if (!has(id, "plate.png")) out.push({ asset: id, step: "plate" });
+  void project;
+  return out;
+}
+
 /** Recreates the public dir with hard links to the planned files (copies when linking is not possible). */
 export function prepareMedia(plan: MediaPlan, publicDir: string): void {
   rmSync(publicDir, { recursive: true, force: true });
