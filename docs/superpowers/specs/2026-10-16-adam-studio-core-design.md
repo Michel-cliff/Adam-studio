@@ -41,12 +41,15 @@ driver, but the public repo never contains personal footage or third-party asset
 
 ## 2. Scope of this spec
 
-In scope: the project format, `resolve()`, `lint()`, narrative frameworks, the element kind registry with
-the kinds needed for the acceptance test, the Remotion renderer and render CLI, the CapCut exporter, and
-the contract with the analysis cache.
+In scope: the project format, `resolve()`, `lint()`, narrative frameworks, the guided workflow with
+proposals and variants (section 14), the element kind registry with the kinds needed for the acceptance
+test, the Remotion renderer and render CLI (including `adam review` and `adam decide`), the CapCut
+exporter, and the contract with the analysis cache.
 
 Out of scope: producing analysis assets (sub-project 2; the acceptance test reuses assets already computed
-for 1015), the MCP server, the web app, full series templates, native HUD components, asset search.
+for 1015), generating variants automatically (Claude does it through the MCP server, sub-project 3; in this
+sub-project variants are written into `project.json` by hand or by Claude editing the file), the MCP
+server, the web app, full series templates, native HUD components, asset search.
 
 ## 3. Repository layout
 
@@ -91,7 +94,9 @@ All times are integer milliseconds. Frames appear only after resolution.
   "story": [ /* 4.3 */ ],
   "elements": [ /* 4.4 */ ],
   "captions": [ /* 4.5 */ ],
-  "structure": { /* 4.6 */ }
+  "structure": { /* 4.6 */ },
+  "workflow": { /* 14 */ },
+  "proposals": [ /* 14 */ ]
 }
 ```
 
@@ -208,9 +213,12 @@ Sizes are fractions of the canvas width so one style serves both formats. Grade 
 0 meaning neutral. The CapCut exporter converts sizes to CapCut text units with a factor calibrated once
 against a known CapCut text.
 
-## 5. `resolve(project, style) -> Timeline`
+## 5. `resolve(project, style, options?) -> Timeline`
 
-A pure function, the only place where anchors, cuts and slots are interpreted. Output (`timeline.json`):
+A pure function, the only place where anchors, cuts and slots are interpreted. Accepted proposals are
+already plain content in the project; pending and rejected proposals are ignored, except the one named in
+`options.apply = { proposal, variant }`, which is applied virtually (used for variant previews).
+Output (`timeline.json`):
 
 ```jsonc
 { "width": 1080, "height": 1920, "fps": 30, "durationFrames": 1940,
@@ -245,6 +253,7 @@ Each warning has a rule id, a severity, a message and the ids involved. Rules in
 | `structure.beats` | every beat of the chosen framework is present, in order, non-overlapping |
 | `elements.orphans` | no orphan elements or captions |
 | `assets.missing` | every referenced asset and required derived file exists |
+| `proposals.pending` | no proposal left pending (the final export refuses to run otherwise, unless forced) |
 
 "Single focus" is judged by Claude in sub-project 3, not by lint.
 
@@ -284,9 +293,16 @@ directional blur (SVG `feGaussianBlur` with a horizontal-only deviation) proport
 Framing modes in both formats: `cover`, `fit` with blurred or colored background, `crop` with keyframed
 pan and zoom, `split` with a style-defined layout.
 
-CLI: `adam render <projectDir> [--out file.mp4] [--frames a-b]` resolves, renders H.264 + AAC at the
-canvas size and fps, and writes `renders/<name>.mp4` plus the timeline snapshot. Remotion Studio is the
-preview until the web app exists.
+CLI:
+- `adam render <projectDir> [--out file.mp4] [--frames a-b] [--force]` resolves, renders H.264 + AAC at
+  the canvas size and fps, and writes `renders/<name>.mp4` plus the timeline snapshot. It refuses while
+  proposals are pending unless `--force`.
+- `adam review <projectDir> [--step <name>]` renders, for every pending proposal of the current step, a
+  short preview per variant and a comparison sheet (section 14).
+- `adam decide <projectDir> <proposalId> <A|B|C|reject|more> [--note "..."]` records the decision and
+  applies it.
+
+Remotion Studio is the preview until the web app exists.
 
 ## 9. Contract with the analysis cache
 
@@ -338,7 +354,8 @@ Every export writes `renders/<name>.capcut-report.json`: each element marked `na
 ## 12. Testing
 
 - **Model** (vitest): schema validation; `resolve()` with anchors across cuts, orphans, caption groups
-  split by cuts, beats, frame rounding; every lint rule; `cutWords` / `restoreWords`.
+  split by cuts, beats, frame rounding, and a variant applied virtually; every lint rule; `cutWords` /
+  `restoreWords`; `decide()` for accept, reject and more, including history and step progression.
 - **Renderer**: a generator script makes synthetic media (color bars, tone, a moving shape with a matte,
   a plate) and a synthetic project; stills at chosen frames are compared to reference images with a
   tolerance; a short export is checked with ffprobe (size, fps, duration, audio stream).
@@ -358,3 +375,76 @@ Every export writes `renders/<name>.capcut-report.json`: each element marked `na
    Concurrency is tuned to the machine (12 threads; oversubscription was measured as harmful in the lab).
 4. **pyJianYingDraft**: kept as an external dependency with the lab patches (text shadow fix, explicit
    photo size); upstream changes may require re-patching.
+
+## 14. Guided workflow and variants
+
+The creator keeps control over generation: the edit is built step by step, and every place where an
+effect, a text or an image would go is offered as a proposal with three variants to accept or reject.
+
+### 14.1 Steps
+
+Steps run in a fixed order; a step opens only when every proposal of the previous step is decided,
+because later choices depend on earlier ones.
+
+| # | Step id | Proposals |
+|---|---|---|
+| 1 | `cuts` | one proposal for the whole cut plan, variants by tightness (for example tight, balanced, loose) |
+| 2 | `structure` | one proposal: three framework and beat placements |
+| 3 | `captions` | one proposal: three caption styles |
+| 4 | `hook` | one proposal: three hook titles for the first 3 seconds |
+| 5 | `beats` | one proposal per beat change: three transition treatments |
+| 6 | `visuals` | one proposal per spot that calls for text, an image, a HUD element or a reference |
+| 7 | `sound` | one proposal per sound placement, or one for the sound pass as a whole |
+| 8 | `look` | one proposal: three grades |
+
+```jsonc
+"workflow": { "current": "visuals",
+              "steps": { "cuts": "done", "structure": "done", "captions": "done", "hook": "done",
+                         "beats": "done", "visuals": "open", "sound": "locked", "look": "locked" } }
+```
+
+### 14.2 Proposals
+
+```jsonc
+{ "id": "p12", "step": "visuals", "anchor": { "word": "clip02.w31" },
+  "reason": "mention of jobless.fr",
+  "variants": [
+    { "key": "A", "label": "HUD window with a capture of the site", "patch": { /* 14.3 */ } },
+    { "key": "B", "label": "Logo pop-up next to the caption", "patch": { } },
+    { "key": "C", "label": "Site name as a big word behind the speaker", "patch": { } } ],
+  "status": "pending",                     // "pending" | { "accepted": "B" } | "rejected"
+  "history": [ { "variants": ["A", "B", "C"], "decision": "more", "note": "more sober" } ] }
+```
+
+A proposal has one to three variants (exactly three whenever alternatives make sense). The anchor places
+it on the timeline for previews and review.
+
+### 14.3 Patches
+
+A patch is the set of changes a variant makes, expressed in the authoring model so it survives recuts:
+`addElements`, `addCaptions`, `setStory` (cuts step), `setStructure`, `setStyle` (partial style
+override, for captions and look) and `removeElements`. Patches never reference absolute output times
+except through `{ "atMs" }` anchors, exactly like ordinary elements.
+
+### 14.4 Decisions
+
+`decide(project, proposalId, decision, note?)` is a pure model operation:
+- `A`, `B` or `C`: applies the patch to the project content, sets `status` to `{ "accepted": key }`.
+- `reject`: nothing is applied, `status` becomes `rejected`.
+- `more`: the current variants move to `history` with the optional note; the proposal stays `pending`
+  with no variants until new ones are written (by Claude, sub-project 3).
+
+When the last proposal of the current step is decided, the step becomes `done` and the next one `open`.
+Rejected variants and notes stay in `history`, so Claude can learn the creator's taste later.
+
+### 14.5 Review output
+
+`adam review` resolves the project once per variant with `options.apply`, renders a window of about
+3 seconds centred on the proposal's anchor (whole-video proposals such as `look` use three fixed sample
+moments), and writes to `renders/review/<proposalId>/`:
+- `A.mp4`, `B.mp4`, `C.mp4`: the previews,
+- `sheet.jpg`: one representative frame per variant side by side, labelled with the variant key and label,
+- `index.json`: what was rendered, for the web app and for Claude.
+
+Until the web app exists, the creator watches these files and answers in the chat; Claude runs
+`adam decide`.
