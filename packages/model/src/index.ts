@@ -6,3 +6,7 @@ export * from "./parse";
 export * from "./words";
 export * from "./frameworks";
 export * from "./layout";
+export * from "./schema/timeline";
+export * from "./merge";
+export { anchorMs, createContext, mergeStyle, type ResolveContext } from "./context";
+export * from "./resolve";
