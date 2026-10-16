@@ -8,9 +8,10 @@ type Render = (style: CSSProperties) => ReactNode;
 /**
  * Draws media with a clip's framing and zoom; `render` returns the media element filling the given style.
  * `source` is the media's pixel size; unknown, it is assumed to have the canvas's shape.
+ * `bare` leaves out the fit background: the subject layer sits above behind-subject elements and must not cover them.
  */
-export const Framed: FC<{ framing: Framing; zoom: number; sourceMs: number; source?: Size; render: Render; renderSecond?: Render }> = ({
-  framing, zoom, sourceMs, source, render, renderSecond,
+export const Framed: FC<{ framing: Framing; zoom: number; sourceMs: number; source?: Size; bare?: boolean; render: Render; renderSecond?: Render }> = ({
+  framing, zoom, sourceMs, source, bare, render, renderSecond,
 }) => {
   const { width, height } = useVideoConfig();
   const fill: CSSProperties = { width: "100%", height: "100%", objectFit: "cover" };
@@ -21,7 +22,7 @@ export const Framed: FC<{ framing: Framing; zoom: number; sourceMs: number; sour
     case "fit":
       return (
         <AbsoluteFill>
-          {framing.background === "blur" ? (
+          {bare ? null : framing.background === "blur" ? (
             <AbsoluteFill style={{ filter: "blur(40px)", transform: "scale(1.15)" }}>{render(fill)}</AbsoluteFill>
           ) : (
             <AbsoluteFill style={{ backgroundColor: framing.color ?? "black" }} />

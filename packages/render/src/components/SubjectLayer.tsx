@@ -49,6 +49,7 @@ const SubjectFrame: FC<{ clip: TimelineClip; files: MediaFiles; startFrame: numb
         zoom={zoomAt(clip.zoom, elapsedMs)}
         sourceMs={clip.sourceInMs + elapsedMs}
         source={files.width && files.height ? { width: files.width, height: files.height } : undefined}
+        bare
         render={(style) => <OffthreadVideo src={staticFile(files.subject!)} trimBefore={trimBefore} muted transparent style={style} />}
       />
     </AbsoluteFill>

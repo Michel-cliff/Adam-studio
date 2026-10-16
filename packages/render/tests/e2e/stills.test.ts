@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { PNG } from "pngjs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parseProject, parseStyle, resolve, type Style } from "@adam-studio/model";
-import { bundleFor, renderFrame } from "../../src/engine";
-import { planMedia, prepareMedia } from "../../src/media";
+import { bundleWithMedia, renderFrame } from "../../src/engine";
+import { planMedia } from "../../src/media";
 import type { RenderProps } from "../../src/props";
 import { projectInput } from "../unit/helpers";
 import { makeSynthetic } from "./synthetic";
@@ -25,9 +25,7 @@ beforeAll(async () => {
   style = s.value;
   const timeline = resolve(p.value, style);
   const plan = planMedia(dir, p.value, timeline);
-  const pub = join(dir, "renders", ".public");
-  prepareMedia(plan, pub);
-  serveUrl = await bundleFor(pub);
+  serveUrl = await bundleWithMedia(plan, join(dir, "renders", ".bundle"));
   props = { timeline, media: plan.media, fonts: plan.fonts };
 });
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -74,6 +72,22 @@ describe("composition", () => {
   it("returns to the plain clip after the slide", async () => {
     const [left] = await pixels(75, [[300, 960]]);
     near(left!, RED);
+  });
+
+  it("keeps the element behind the subject visible with fit framing", async () => {
+    // The subject layer must not repeat the fit background over the behind-subject element.
+    const p = parseProject({
+      ...projectInput(),
+      story: [
+        { id: "c1", asset: "s", inMs: 0, outMs: 2000, framing: { mode: "fit", background: "color", color: "#FFFF00" }, transitionOut: { kind: "subjectSlide", durationMs: 600 } },
+        { id: "c2", asset: "s", inMs: 2000, outMs: 4000 },
+      ],
+    });
+    if (!p.ok) throw new Error("fit project is invalid");
+    const fitted = { ...props, timeline: resolve(p.value, style) };
+    const [corner, center] = await pixels(15, [[50, 50], [540, 960]], fitted);
+    near(corner!, MAGENTA);
+    near(center!, GREEN);
   });
 
   it("crops to a rect of the source frame", async () => {

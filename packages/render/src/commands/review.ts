@@ -5,8 +5,8 @@ import {
   applyPatch, indexWords, layoutStory, msToFrame, resolve, wordOutput,
   type Project, type Proposal, type StepId, type Timeline,
 } from "@adam-studio/model";
-import { bundleFor, renderFrame, renderVideo } from "../engine";
-import { expandEnv, mergePlans, planMedia, prepareMedia, type MediaPlan } from "../media";
+import { bundleWithMedia, renderFrame, renderVideo } from "../engine";
+import { expandEnv, mergePlans, planMedia, type MediaPlan } from "../media";
 import { loadProject } from "../project-io";
 
 export function reviewTargets(project: Project, step?: string): Proposal[] {
@@ -86,9 +86,7 @@ export async function reviewCommand(projectDir: string, opts: { step?: string } 
     }
   }
   const merged = mergePlans(jobs.map((j) => j.plan));
-  const publicDir = join(dir, "renders", ".public");
-  prepareMedia(merged, publicDir);
-  const serveUrl = await bundleFor(publicDir);
+  const serveUrl = await bundleWithMedia(merged, join(dir, "renders", ".bundle"));
   const folders: string[] = [];
   for (const p of targets) {
     const folder = join(dir, "renders", "review", p.id);
@@ -96,7 +94,8 @@ export async function reviewCommand(projectDir: string, opts: { step?: string } 
     const entries: { key: string; label: string; preview: string; still: string; ranges: [number, number][] }[] = [];
     for (const j of jobs.filter((x) => x.proposal.id === p.id)) {
       const win = reviewWindow(j.applied, j.timeline, p);
-      const props = { timeline: j.timeline, media: merged.media, fonts: merged.fonts };
+      // Each variant keeps its own fonts: a captions or hook variant may change them.
+      const props = { timeline: j.timeline, media: merged.media, fonts: j.plan.fonts };
       await renderVideo(serveUrl, props, join(folder, `${j.key}.mp4`), win.ranges.length === 1 ? win.ranges[0]! : win.ranges);
       await renderFrame(serveUrl, props, win.still, join(folder, `${j.key}.png`));
       entries.push({ key: j.key, label: j.label, preview: `${j.key}.mp4`, still: `${j.key}.png`, ranges: win.ranges });

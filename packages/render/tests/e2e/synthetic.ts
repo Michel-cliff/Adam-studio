@@ -28,8 +28,8 @@ export function makeSynthetic(dir: string, opts: { withProposal?: boolean } = {}
   const src = join(dir, "assets-src");
   mkdirSync(cache, { recursive: true });
   mkdirSync(src, { recursive: true });
-  // Cache contract: edit.mp4 has a keyframe every second and no B-frames. With long GOPs, Remotion's
-  // frame cache loses frames during parallel renders ("No frame found at position").
+  // Cache contract (GOP rule): edit.mp4 and subject.webm have a keyframe every second, edit.mp4 has no
+  // B-frames. With long GOPs, Remotion's frame cache loses frames during parallel renders.
   ffmpeg([
     "-f", "lavfi", "-i", "color=c=red:s=540x1920:r=30:d=4",
     "-f", "lavfi", "-i", "color=c=blue:s=540x1920:r=30:d=4",
@@ -40,7 +40,7 @@ export function makeSynthetic(dir: string, opts: { withProposal?: boolean } = {}
   ffmpeg([
     "-f", "lavfi", "-i", "color=c=black:s=1080x1920:r=30:d=4",
     "-vf", "format=rgba,geq=r='0':g='255':b='0':a='if(between(X,340,740)*between(Y,760,1160),255,0)'",
-    "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-auto-alt-ref", "0", "-b:v", "1M", join(cache, "subject.webm"),
+    "-c:v", "libvpx-vp9", "-g", "30", "-pix_fmt", "yuva420p", "-auto-alt-ref", "0", "-b:v", "1M", join(cache, "subject.webm"),
   ]);
   ffmpeg(["-f", "lavfi", "-i", "color=c=gray:s=1080x1920", "-frames:v", "1", join(cache, "plate.png")]);
   ffmpeg(["-f", "lavfi", "-i", "color=c=magenta:s=1080x1920", "-frames:v", "1", join(src, "magenta.png")]);

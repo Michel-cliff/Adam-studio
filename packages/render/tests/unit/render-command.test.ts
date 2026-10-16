@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseFrames } from "../../src/commands/render";
+import { fileSafeName, parseFrames } from "../../src/commands/render";
 import { CliError, loadProject } from "../../src/project-io";
 import { projectInput, styleInput } from "./helpers";
 
@@ -31,5 +31,16 @@ describe("loadProject", () => {
     writeFileSync(join(dir, "style.json"), JSON.stringify(styleInput));
     expect(() => loadProject(dir)).toThrow("project.json is invalid:\n- story[0].outMs: outMs must be greater than inMs");
     rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("fileSafeName", () => {
+  it("keeps accents and spaces but replaces characters Windows forbids in file names", () => {
+    expect(fileSafeName("Épisode 3 : Jobless")).toBe("Épisode 3 - Jobless");
+    expect(fileSafeName(String.raw`a/b\c*d?e"f<g>h|i`)).toBe("a-b-c-d-e-f-g-h-i");
+  });
+  it("never returns an empty name or one ending with a dot or a space", () => {
+    expect(fileSafeName("...")).toBe("edit");
+    expect(fileSafeName("final. ")).toBe("final");
   });
 });

@@ -313,17 +313,19 @@ Remotion Studio is the preview until the web app exists.
 
 | File | Used for | Required when |
 |---|---|---|
-| `edit.mp4` | export (H.264, canvas-sized, audio, a keyframe every second, no B-frames) | always for video assets |
-| `proxy.mp4` | preview (half resolution, same GOP rule) | preview only, falls back to `edit.mp4` |
-
-The GOP rule is not optional: with x264's default long GOP and B-frames, Remotion's frame cache loses
-frames during parallel renders ("No frame found at position"), found while building the renderer. For
-the same reason the renderer sizes its parallel tabs to the free memory, so the frame cache (half the
-free memory) holds one second of frames per video source for every tab.
+| `edit.mp4` | export (H.264 at canvas resolution with the source aspect kept, audio; GOP rule) | always for video assets |
+| `proxy.mp4` | preview (half resolution; GOP rule) | preview only, falls back to `edit.mp4` |
 | `transcript.json` | words, merged into `project.json` on import | transcript editing |
 | `silences.json` | pause lint and auto-cut suggestions | optional |
-| `subject.webm` | subject layer (VP9 alpha, same timing as the asset) | behind-subject elements or subject slides on this asset |
+| `subject.webm` | subject layer (VP9 alpha, same timing and size as `edit.mp4`; GOP rule) | behind-subject elements or subject slides on this asset |
 | `plate.png` | clean background without the speaker | subject slides on this asset |
+
+GOP rule, for every video file above: a keyframe every second and no B-frames (x264 `-g <fps> -bf 0`,
+libvpx `-g <fps>`). It is not optional: with the encoders' default long GOPs, Remotion's frame cache
+loses frames during parallel renders ("No frame found at position"), found while building the renderer
+on `edit.mp4` and `subject.webm`. For the same reason the renderer sizes its parallel tabs to the free
+memory, so the frame cache (half the free memory) holds one second of frames per video decoded at the
+same time, for every tab.
 
 For the acceptance test these files are produced once by adapting the lab scripts; sub-project 2 replaces
 that with a proper pipeline.

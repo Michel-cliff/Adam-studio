@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, linkSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, extname, isAbsolute, join } from "node:path";
 import type { Project, Timeline } from "@adam-studio/model";
@@ -70,13 +71,16 @@ export function planMedia(projectDir: string, project: Project, timeline: Timeli
     add(id, "file", at(asset.path), `assets/${id}${extname(asset.path)}`, "check the asset path");
   }
 
-  const fonts = {
-    caption: `fonts/caption${extname(timeline.style.fonts.caption.file)}`,
-    title: `fonts/title${extname(timeline.style.fonts.title.file)}`,
-  };
-  for (const key of ["caption", "title"] as const) {
+  // Named after the source file, so review variants with different fonts can share one public dir.
+  const fontName = (key: "caption" | "title") => {
     const from = at(timeline.style.fonts[key].file);
-    if (existsSync(from)) files.set(fonts[key], from);
+    return { from, to: `fonts/${key}-${createHash("sha1").update(from).digest("hex").slice(0, 8)}${extname(from)}` };
+  };
+  const caption = fontName("caption");
+  const title = fontName("title");
+  const fonts = { caption: caption.to, title: title.to };
+  for (const [key, f] of [["caption", caption], ["title", title]] as const) {
+    if (existsSync(f.from)) files.set(f.to, f.from);
     else missing.push(`font file ${timeline.style.fonts[key].file} (${key} font of the style)`);
   }
 

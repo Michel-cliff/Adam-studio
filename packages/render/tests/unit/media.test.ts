@@ -35,10 +35,22 @@ describe("planMedia", () => {
       m: { file: "assets/m.png" },
       b: { file: "assets/b.wav" },
     });
-    expect(plan.fonts).toEqual({ caption: "fonts/caption.ttf", title: "fonts/title.otf" });
-    expect(plan.files.map((f) => f.to).sort()).toEqual([
-      "assets/b.wav", "assets/m.png", "cache/s/edit.mp4", "cache/s/plate.png", "cache/s/subject.webm", "fonts/caption.ttf", "fonts/title.otf",
-    ]);
+    expect(plan.fonts.caption).toMatch(/^fonts\/caption-[0-9a-f]{8}\.ttf$/);
+    expect(plan.fonts.title).toMatch(/^fonts\/title-[0-9a-f]{8}\.otf$/);
+    expect(plan.files.map((f) => f.to).sort()).toEqual(
+      ["assets/b.wav", "assets/m.png", "cache/s/edit.mp4", "cache/s/plate.png", "cache/s/subject.webm", plan.fonts.caption, plan.fonts.title].sort(),
+    );
+  });
+
+  it("gives each font file its own public name, so variants with different fonts share one public dir", () => {
+    const { project, timeline } = setup();
+    touch("fonts-src/other.ttf");
+    const other = { ...timeline, style: { ...timeline.style, fonts: { ...timeline.style.fonts, caption: { family: "O", file: "fonts-src/other.ttf" } } } };
+    const a = planMedia(dir, project, timeline);
+    const b = planMedia(dir, project, other);
+    expect(a.fonts.caption).not.toBe(b.fonts.caption);
+    expect(a.fonts.title).toBe(b.fonts.title);
+    expect(mergePlans([a, b]).files.map((f) => f.to)).toEqual(expect.arrayContaining([a.fonts.caption, b.fonts.caption]));
   });
 
   it("prefers proxy.mp4 for previews, and falls back to edit.mp4", () => {
@@ -70,7 +82,7 @@ describe("prepareMedia", () => {
     const pub = join(dir, "renders", ".public");
     prepareMedia(plan, pub);
     expect(readFileSync(join(pub, "cache/s/edit.mp4"), "utf8")).toBe("cache/s/edit.mp4");
-    expect(readFileSync(join(pub, "fonts/title.otf"), "utf8")).toBe("fonts-src/t.otf");
+    expect(readFileSync(join(pub, plan.fonts.title), "utf8")).toBe("fonts-src/t.otf");
   });
 });
 
