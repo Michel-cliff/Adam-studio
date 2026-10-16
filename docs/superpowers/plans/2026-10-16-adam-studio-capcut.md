@@ -4,7 +4,7 @@
 
 **Goal:** `python -m adam_capcut export <projectDir> [--name "1015 edit"]` writes a self-contained CapCut project from an Adam Studio project: native CapCut items wherever possible, Remotion renders for the rest, and a report saying which is which.
 
-**Architecture:** Two steps. A TypeScript prepare step (`npm run adam -- capcut-prep <dir>`, in `packages/render`) resolves the timeline, decides what cannot be native (`planCapcut`), renders it with Remotion (baked stretches of the main track as H.264, front elements without a native equivalent as transparent MOV ProRes 4444), and writes `renders/capcut/{timeline.json, capcut-plan.json, bake/, overlay/}`. A Python package (`py/capcut`, `adam_capcut`) runs that step, then builds the CapCut project with the lab's pyJianYingDraft: main track (native clip parts around the baked stretches), front photos and overlays, native captions with the style font, sound effects, grade keyframes and vignette, with every media file copied inside the CapCut project, and writes `renders/<name>.capcut-report.json`.
+**Architecture:** Two steps. A TypeScript prepare step (`npm run adam -- capcut-prep <dir>`, in `packages/render`) resolves the timeline, decides what cannot be native (`planCapcut`), renders it with Remotion (baked stretches of the main track as H.264, front elements of kinds without a native mapping as transparent MOV ProRes 4444), and writes `renders/capcut/{timeline.json, capcut-plan.json, bake/, overlay/}`. A Python package (`py/capcut`, `adam_capcut`) runs that step, then builds the CapCut project with the lab's pyJianYingDraft: main track (native clip parts around the baked stretches), front photos and overlays, editable titles (one CapCut text per line, laid out like the renderer), native captions, each text with its style font, sound effects, grade keyframes and vignette, with every media file copied inside the CapCut project (videos warmed with the renderer's color matrix), and writes `renders/<name>.capcut-report.json`.
 
 **Tech Stack:** TypeScript and Remotion 4.0.536 (existing `packages/render`), Python 3.12, pytest 9.0.3, imageio 2.38.1 (needed by pyJianYingDraft), pyJianYingDraft and `draft_profiles` from the ClaudeCapcut lab (`ADAM_CAPCUT_LAB`, default `~/ClaudeCapcut/VectCutAPI`), ffmpeg and ffprobe on PATH.
 
@@ -19,9 +19,10 @@
 - Safety (spec section 10): ownership marker `.adam_studio_export` written at folder creation; a folder without it is never overwritten; a folder containing `.locked` (open in CapCut) is refused. Projects made by the lab (marker `.vectcut_generated`) or by hand are therefore never touched.
 - Every media file used by the CapCut project is copied into its `media/` folder.
 - Transparent overlays are MOV ProRes 4444 (`prores`, profile `4444`, `yuva444p10le`), per decision 0001.
-- Bake mode draws the main track only (clips, behind-subject elements, subject, clip audio), ungraded: CapCut applies the brightness, contrast and saturation keyframes and the vignette effect over the whole main track, so baked and native stretches match.
-- Deliberate departures from the spec's mapping table, to confirm at review: `title` elements are exported as transparent overlays (exact look, but not editable text) instead of native text; `split` clips are baked instead of two video tracks; `grade.warmth` is reported `skipped` (set Temperature by hand in CapCut) instead of approximated; `crossfade` is reported `skipped` (done by hand, decision of 2026-10-16).
-- Caption size and stroke use provisional factors calibrated on the lab edit (`CAPTION_SIZE_K = 200`, `BORDER_K = 500`); Task 9's manual check confirms or corrects them.
+- Bake mode draws the main track only (clips, behind-subject elements, subject, clip audio) with the warmth part of the grade only: CapCut applies the brightness, contrast and saturation keyframes and the vignette effect over the whole main track, and the exporter warms the copied videos with the same color matrix (`colorchannelmixer` rr = 1 + 0.12 w, gg = 1 + 0.02 w, bb = 1 - 0.14 w), so baked and native stretches match the MP4.
+- Creator decisions of 2026-10-16: titles must be editable text in CapCut (one CapCut text per line and per phase, plus the kicker, positioned and sized like the renderer, boxed lines with the accent background, staggered Glitch intros approximating the reveal); warmth is applied by the tool, not by hand (baked into the copied videos, reported `baked`); `crossfade` is reported `skipped` (done by hand); `split` clips are baked.
+- Front elements of kinds with a native mapping (`image`, `title`, `text.behindSubject`) are native; any other front kind (none in v1, HUD kinds come in sub-project 6) becomes a transparent overlay. Tests force the overlay path with a custom native kind set.
+- Caption and title sizes and the stroke use provisional factors calibrated on the lab edit (`CAPTION_SIZE_K = 200`, `BORDER_K = 500`); Task 9's manual check confirms or corrects them.
 - Docs and messages use no em dash characters. Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Review Focus
@@ -31,20 +32,31 @@
 - A 16:9 screen recording in a 9:16 project, with `cover` or `crop` framing: scale relative to CapCut's fit size, rect read in the source frame (Task 4 `cover_scale` and `crop_transform` landscape tests).
 - Overlapping sound effects, captions or front elements: each overlap level gets its own CapCut track, never two segments overlapping on one track (Task 5 `allocate` test; Task 8 uses it for captions, front items and sounds).
 - Accented text in a highlighted caption ("créé\nma boîte" with "boîte" highlighted): highlight ranges land on the right characters (Task 8 caption test).
+- A multi-phase title with a kicker, a boxed line and a larger line: each line becomes its own editable text at the renderer's height and size, starting at its reveal time (Task 8 `title_texts` test).
 
 ---
 
 ### Task 1: Render modes for CapCut (bake and overlay) and transparent output
 
 **Files:**
-- Modify: `packages/render/src/props.ts`, `packages/render/src/Edit.tsx`, `packages/render/src/components/ElementLayer.tsx`, `packages/render/src/components/AudioLayer.tsx`, `packages/render/src/engine.ts`
-- Test: `packages/render/tests/e2e/modes.test.ts`
+- Modify: `packages/render/src/props.ts`, `packages/render/src/Edit.tsx`, `packages/render/src/lib/grade.ts`, `packages/render/src/components/ElementLayer.tsx`, `packages/render/src/components/AudioLayer.tsx`, `packages/render/src/engine.ts`
+- Test: `packages/render/tests/unit/grade.test.ts`, `packages/render/tests/e2e/modes.test.ts`
 
 **Interfaces:**
 - Consumes: `bundleWithMedia`, `renderFrame`, `renderVideo` (engine), `planMedia` (media), `makeSynthetic` (tests/e2e/synthetic.ts), `projectInput` (tests/unit/helpers.ts).
-- Produces: `type RenderMode = { kind: "full" } | { kind: "bake" } | { kind: "overlay"; elements: string[] }`; `RenderProps.mode?: RenderMode` (absent means full); `renderVideo(serveUrl, props, outFile, frameRange?, opts?: { transparent?: boolean })`, where `transparent` writes MOV ProRes 4444 with alpha and no audio.
+- Produces: `type RenderMode = { kind: "full" } | { kind: "bake" } | { kind: "overlay"; elements: string[] }`; `RenderProps.mode?: RenderMode` (absent means full); `warmthFilter(grade, svgId)` in `lib/grade.ts`; `renderVideo(serveUrl, props, outFile, frameRange?, opts?: { transparent?: boolean })`, where `transparent` writes MOV ProRes 4444 with alpha and no audio.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing tests**
+
+Append to `packages/render/tests/unit/grade.test.ts` (and add `warmthFilter` to its import from `../../src/lib/grade`):
+```ts
+describe("warmthFilter", () => {
+  it("keeps only the warmth part of the grade, for stretches baked for CapCut", () => {
+    expect(warmthFilter({ ...neutral, warmth: 0.35, contrast: 0.1 }, "g")).toBe("url(#g)");
+    expect(warmthFilter({ ...neutral, contrast: 0.1 }, "g")).toBe("none");
+  });
+});
+```
 
 `packages/render/tests/e2e/modes.test.ts`:
 ```ts
@@ -117,12 +129,20 @@ describe("render modes", () => {
 });
 ```
 
-- [ ] **Step 2: Run it to see it fail**
+- [ ] **Step 2: Run them to see them fail**
 
-Run: `npm run test:e2e -w @adam-studio/render`
-Expected: the 3 new tests FAIL (bake mode still shows the magenta image, overlay mode has a black opaque background, the MOV is H.264); the other 9 end-to-end tests PASS.
+Run: `npm test -w @adam-studio/render` then `npm run test:e2e -w @adam-studio/render`
+Expected: the unit run FAILS on `warmthFilter is not a function`; in the end-to-end run the 3 new tests FAIL (bake mode still shows the magenta image, overlay mode has a black opaque background, the MOV is H.264) and the other 9 PASS.
 
 - [ ] **Step 3: Implement the modes**
+
+In `packages/render/src/lib/grade.ts`, add after `gradeFilter`:
+```ts
+/** Only the warmth part of the grade: CapCut applies brightness, contrast and saturation over baked stretches itself. */
+export function warmthFilter(grade: Grade, svgId: string): string {
+  return grade.warmth !== 0 ? `url(#${svgId})` : "none";
+}
+```
 
 In `packages/render/src/props.ts`, add after `MediaFiles`:
 ```ts
@@ -153,7 +173,7 @@ import { ClipLayer } from "./components/ClipLayer";
 import { ElementLayer } from "./components/ElementLayer";
 import { SubjectLayer } from "./components/SubjectLayer";
 import { ensureFonts } from "./fonts";
-import { GRADE_FILTER_ID, gradeFilter, vignetteBackground, warmthMatrix } from "./lib/grade";
+import { GRADE_FILTER_ID, gradeFilter, vignetteBackground, warmthFilter, warmthMatrix } from "./lib/grade";
 import { slideWindows, subjectWindows } from "./lib/subject";
 import type { RenderProps } from "./props";
 
@@ -171,8 +191,9 @@ export const Edit: FC<RenderProps> = (props) => {
   }
   const full = mode.kind === "full";
   const grade = timeline.style.grade;
-  // Baked stretches stay ungraded: CapCut grades the whole main track, baked or native.
-  const filter = full ? gradeFilter(grade, GRADE_FILTER_ID) : "none";
+  // Baked stretches keep only the warmth (the exporter warms the native videos alike): CapCut applies the
+  // rest of the grade over the whole main track, baked or native.
+  const filter = full ? gradeFilter(grade, GRADE_FILTER_ID) : warmthFilter(grade, GRADE_FILTER_ID);
   const slides = slideWindows(timeline);
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
@@ -294,7 +315,7 @@ export async function renderVideo(
 - [ ] **Step 4: Run the tests and the typecheck**
 
 Run: `npm run test:e2e -w @adam-studio/render`, `npm test -w @adam-studio/render`, then `npm run typecheck -w @adam-studio/render`
-Expected: 12 end-to-end tests PASS, 60 unit tests PASS, typecheck exit code 0.
+Expected: 12 end-to-end tests PASS, 61 unit tests PASS, typecheck exit code 0.
 
 - [ ] **Step 5: Commit**
 
@@ -315,7 +336,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: `Timeline` (model), `subjectWindows` (`src/lib/subject.ts`), `timelineOf` and `projectInput` (tests/unit/helpers.ts).
-- Produces: `type ReportEntry = { id; kind; status: "native" | "baked" | "skipped"; reason }`, `type CapcutBake = { id; fromFrame; toFrame }` (half-open), `type CapcutOverlay = { elementId; fromFrame; durationFrames }`, `type CapcutPlan = { bakes; overlays; entries }`, `planCapcut(timeline): CapcutPlan`. Bake ids are `b01`, `b02`... in time order.
+- Produces: `type ReportEntry = { id; kind; status: "native" | "baked" | "skipped"; reason }`, `type CapcutBake = { id; fromFrame; toFrame }` (half-open), `type CapcutOverlay = { elementId; fromFrame; durationFrames }`, `type CapcutPlan = { bakes; overlays; entries }`, `NATIVE_FRONT_KINDS` (`image`, `title`, `text.behindSubject`), `planCapcut(timeline, nativeKinds = NATIVE_FRONT_KINDS): CapcutPlan`. Bake ids are `b01`, `b02`... in time order.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -344,10 +365,16 @@ describe("planCapcut", () => {
     ]);
   });
 
-  it("turns front titles into transparent overlays", () => {
+  it("keeps titles native (editable text in CapCut)", () => {
     const plan = planCapcut(timelineOf({ elements: [title] }));
-    expect(plan.overlays).toEqual([{ elementId: "t", fromFrame: 75, durationFrames: 15 }]);
+    expect(plan.overlays).toEqual([]);
     expect(plan.bakes).toEqual([{ id: "b01", fromFrame: 53, toFrame: 71 }]);
+    expect(plan.entries.find((e) => e.id === "t")).toBeUndefined();
+  });
+
+  it("turns front elements of kinds without a native mapping into transparent overlays", () => {
+    const plan = planCapcut(timelineOf({ elements: [title] }), new Set(["image"]));
+    expect(plan.overlays).toEqual([{ elementId: "t", fromFrame: 75, durationFrames: 15 }]);
     expect(plan.entries.find((e) => e.id === "t")).toEqual({
       id: "t", kind: "title", status: "baked", reason: "no native CapCut equivalent: transparent overlay (MOV ProRes 4444)",
     });
@@ -370,7 +397,7 @@ describe("planCapcut", () => {
 });
 ```
 
-Expected values: the behind-subject image covers frames 9 to 27; the slide-out of c1 (53 to 60) and the slide-in of c2 (60 to 71) touch and merge into 53 to 71. The title at 2500 ms for 500 ms covers frames 75 to 90.
+Expected values: the behind-subject image covers frames 9 to 27; the slide-out of c1 (53 to 60) and the slide-in of c2 (60 to 71) touch and merge into 53 to 71. The title at 2500 ms for 500 ms covers frames 75 to 90; it is native by default and only becomes an overlay when `title` is left out of the native kinds.
 
 - [ ] **Step 2: Run it to see it fail**
 
@@ -391,11 +418,11 @@ export type CapcutBake = { id: string; fromFrame: number; toFrame: number };
 export type CapcutOverlay = { elementId: string; fromFrame: number; durationFrames: number };
 export type CapcutPlan = { bakes: CapcutBake[]; overlays: CapcutOverlay[]; entries: ReportEntry[] };
 
-/** Front element kinds without a native CapCut equivalent: exported as transparent overlays. */
-const OVERLAY_KINDS = new Set(["title", "text.behindSubject"]);
+/** Front element kinds the Python exporter maps to native CapCut items; any other front kind becomes a transparent overlay. */
+export const NATIVE_FRONT_KINDS: ReadonlySet<string> = new Set(["image", "title", "text.behindSubject"]);
 
 /** What the CapCut exporter cannot do natively, and the report entries explaining it. */
-export function planCapcut(timeline: Timeline): CapcutPlan {
+export function planCapcut(timeline: Timeline, nativeKinds: ReadonlySet<string> = NATIVE_FRONT_KINDS): CapcutPlan {
   const entries: ReportEntry[] = [];
   const ranges: [number, number][] = subjectWindows(timeline).map((w) => [w.fromFrame, w.toFrame]);
   for (const c of timeline.clips) {
@@ -422,7 +449,7 @@ export function planCapcut(timeline: Timeline): CapcutPlan {
   for (const e of timeline.elements) {
     if (e.layer === "behind-subject") {
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "drawn behind the subject, baked into the main track" });
-    } else if (OVERLAY_KINDS.has(e.kind)) {
+    } else if (!nativeKinds.has(e.kind)) {
       overlays.push({ elementId: e.id, fromFrame: e.fromFrame, durationFrames: e.durationFrames });
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "no native CapCut equivalent: transparent overlay (MOV ProRes 4444)" });
     }
@@ -434,7 +461,7 @@ export function planCapcut(timeline: Timeline): CapcutPlan {
 - [ ] **Step 4: Run tests and typecheck**
 
 Run: `npm test -w @adam-studio/render` then `npm run typecheck -w @adam-studio/render`
-Expected: all PASS (63 unit tests); typecheck exit code 0.
+Expected: all PASS (65 unit tests); typecheck exit code 0.
 
 - [ ] **Step 5: Commit**
 
@@ -456,7 +483,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: `planCapcut` (Task 2), `renderVideo` with `mode` and `transparent` (Task 1), `bundleWithMedia`, `planMedia`, `loadProject`, `makeSynthetic`.
-- Produces: `lintGate(project, timeline, dir, force, action: "render" | "export")` in `commands/render.ts`; `capcutPrepCommand(projectDir, { out?, force }): Promise<string>` returning the prep folder (default `<project>/renders/capcut`); CLI `npm run adam -- capcut-prep <dir> [--out folder] [--force]`. The prep folder holds `timeline.json` (resolved timeline), `capcut-plan.json`, `bake/<id>.mp4`, `overlay/oNN.mov`. `capcut-plan.json` is:
+- Produces: `lintGate(project, timeline, dir, force, action: "render" | "export")` in `commands/render.ts`; `capcutPrepCommand(projectDir, { out?, force, nativeKinds? }): Promise<string>` returning the prep folder (`nativeKinds` overrides `NATIVE_FRONT_KINDS`, for tests) (default `<project>/renders/capcut`); CLI `npm run adam -- capcut-prep <dir> [--out folder] [--force]`. The prep folder holds `timeline.json` (resolved timeline), `capcut-plan.json`, `bake/<id>.mp4`, `overlay/oNN.mov`. `capcut-plan.json` is:
   `{ name, width, height, fps, bakes: [{ id, fromFrame, toFrame, file }], overlays: [{ elementId, fromFrame, durationFrames, file }], entries: ReportEntry[], sources: { [assetId]: { video?, file?, width?, height? } } (absolute paths), fonts: { caption: { path, family, resourceId }, title: {...} } }` (`resourceId` is `null` when the style has no `capcutResourceId`; file paths in `bakes` and `overlays` are relative to the prep folder).
 
 - [ ] **Step 1: Write the failing test**
@@ -487,7 +514,8 @@ describe("adam capcut-prep", () => {
     });
     writeFileSync(join(dir, "project.json"), JSON.stringify(project));
 
-    const out = await capcutPrepCommand(dir, { force: false });
+    // Titles are native by default; leaving them out of the native kinds exercises the overlay path.
+    const out = await capcutPrepCommand(dir, { force: false, nativeKinds: ["image"] });
     expect(out).toBe(join(dir, "renders", "capcut"));
     const plan = JSON.parse(readFileSync(join(out, "capcut-plan.json"), "utf8"));
     expect(plan.bakes.map((b: { id: string; fromFrame: number; toFrame: number; file: string }) => [b.id, b.fromFrame, b.toFrame, b.file])).toEqual([
@@ -559,7 +587,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 import { resolve } from "@adam-studio/model";
 import { bundleWithMedia, renderVideo } from "../engine";
-import { planCapcut } from "../lib/capcut";
+import { NATIVE_FRONT_KINDS, planCapcut } from "../lib/capcut";
 import { planMedia, type MediaPlan } from "../media";
 import { loadProject } from "../project-io";
 import { lintGate } from "./render";
@@ -584,12 +612,12 @@ export function capcutSources(plan: MediaPlan): Record<string, Source> {
 }
 
 /** Renders what CapCut cannot do natively and writes the plan the Python exporter reads. */
-export async function capcutPrepCommand(projectDir: string, opts: { out?: string; force: boolean }): Promise<string> {
+export async function capcutPrepCommand(projectDir: string, opts: { out?: string; force: boolean; nativeKinds?: string[] }): Promise<string> {
   const { dir, project, style } = loadProject(projectDir);
   const timeline = resolve(project, style);
   lintGate(project, timeline, dir, opts.force, "export");
   const media = planMedia(dir, project, timeline);
-  const plan = planCapcut(timeline);
+  const plan = planCapcut(timeline, opts.nativeKinds ? new Set(opts.nativeKinds) : NATIVE_FRONT_KINDS);
   const out = opts.out ? resolvePath(opts.out) : join(dir, "renders", "capcut");
   rmSync(out, { recursive: true, force: true });
   mkdirSync(join(out, "bake"), { recursive: true });
@@ -645,7 +673,7 @@ and add this case before `default:`:
 - [ ] **Step 5: Run the tests and the typecheck**
 
 Run: `npm run test:e2e -w @adam-studio/render`, `npm test -w @adam-studio/render`, then `npm run typecheck -w @adam-studio/render`
-Expected: 14 end-to-end tests PASS (the render test still refuses with "Refusing to render"), 63 unit tests PASS, typecheck exit code 0.
+Expected: 14 end-to-end tests PASS (the render test still refuses with "Refusing to render"), 65 unit tests PASS, typecheck exit code 0.
 
 - [ ] **Step 6: Commit**
 
@@ -1170,7 +1198,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: units (Task 4), `main_track` and `part_frames` (Task 5), `prepare_project_dir`, `default_projects_root`, `MARKER`, `lab_path`, `load_lab` (Task 6), the prep folder format (Task 3).
-- Produces: `probe(path) -> (duration_s, width, height)`; `copy_media(timeline, plan, prep, media_dir) -> {"videos": {asset: (path, info)}, "files": {asset: path}, "bakes": {id: (path, info)}, "overlays": {elementId: (path, info)}}`; `entry(id, kind, status, reason)`; `class Builder(pjd, timeline, plan, media)` with `.script`, `.entries`, `.span(a, b)`, `.video_material(key, path, info)`, `.main_track()`, `.grade(seg)`; `build_script(pjd, timeline, plan, media) -> (script, entries)`; `REPO`, `TSX`, `run_prepare(project_dir, prep)`, `export(project_dir, *, name=None, projects_root=None, prepare=True, prep_dir=None) -> Path`. Test helpers: `FONT_ID`, `content_of(dest, profiles)`, `report_of(project, name)`, fixtures `lab` and `project` (a project folder with a space and an accent in its path, holding source media and a ready `renders/capcut`).
+- Produces: `probe(path) -> (duration_s, width, height)`; `copy_media(timeline, plan, prep, media_dir) -> {"videos": {asset: (path, info)}, "files": {asset: path}, "bakes": {id: (path, info)}, "overlays": {elementId: (path, info)}}`; `entry(id, kind, status, reason)`; `class Builder(pjd, timeline, plan, media)` with `.script`, `.entries`, `.span(a, b)`, `.video_material(key, path, info)`, `.main_track()`, `.grade(seg)`; `build_script(pjd, timeline, plan, media) -> (script, entries)`; `REPO`, `TSX`, `run_prepare(project_dir, prep)`, `export(project_dir, *, name=None, projects_root=None, prepare=True, prep_dir=None) -> Path`. Test helpers: `FONT_ID`, `TITLE_FONT_ID`, `center_pixel(video)`, `content_of(dest, profiles)`, `report_of(project, name)`, fixtures `lab` and `project` (a project folder with a space and an accent in its path, holding source media and a ready `renders/capcut`).
 
 - [ ] **Step 1: Write the test helpers and fixtures**
 
@@ -1181,6 +1209,7 @@ import subprocess
 from pathlib import Path
 
 FONT_ID = "7181740482383319553"
+TITLE_FONT_ID = "7000000000000000001"
 FONT_CANDIDATES = ("C:/Windows/Fonts/arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf")
 
 
@@ -1213,8 +1242,16 @@ def timeline_dict(font: str) -> dict:
              "x": 0.5, "y": 0.5, "props": {"asset": "m", "fit": "full"}},
             {"id": "pic", "kind": "image", "layer": "front", "fromFrame": 30, "durationFrames": 15, "trimStartMs": 0,
              "x": 0.5, "y": 0.5, "props": {"asset": "m", "fit": "full", "intro": "fade", "outro": "glitch"}},
-            {"id": "t1", "kind": "title", "layer": "front", "fromFrame": 75, "durationFrames": 15, "trimStartMs": 0,
-             "x": 0.5, "y": 0.3, "props": {"phases": [{"startMs": 0, "endMs": 500, "lines": [{"text": "HELLO", "box": False, "sizeScale": 1}]}]}},
+            {"id": "big", "kind": "text.behindSubject", "layer": "front", "fromFrame": 45, "durationFrames": 9, "trimStartMs": 0,
+             "x": 0.5, "y": 0.5, "props": {"text": "WOW", "color": "accent", "sizeScale": 1}},
+            # A kind without a native mapping (HUD kinds come in sub-project 6): exported as an overlay.
+            {"id": "hud1", "kind": "hud.window", "layer": "front", "fromFrame": 75, "durationFrames": 15, "trimStartMs": 0,
+             "x": 0.5, "y": 0.5, "props": {}},
+            {"id": "t1", "kind": "title", "layer": "front", "fromFrame": 90, "durationFrames": 24, "trimStartMs": 0, "x": 0.5, "y": 0.3,
+             "props": {"kicker": "EPISODE 3", "phases": [
+                 {"startMs": 0, "endMs": 400, "lines": [{"text": "QUI VEUT", "box": False, "sizeScale": 1}, {"text": "M'EMBAUCHER ?", "box": True, "sizeScale": 1}]},
+                 {"startMs": 400, "endMs": 800, "lines": [{"text": "PERSONNE", "box": False, "sizeScale": 1.2}]},
+             ]}},
         ],
         "captions": [{"id": "cap1", "fromFrame": 6, "durationFrames": 36, "text": "créé\nma boîte", "highlightRanges": [[8, 13]], "x": 0.5, "y": 0.76}],
         "beats": [],
@@ -1226,7 +1263,7 @@ def timeline_dict(font: str) -> dict:
         "orphans": [], "warnings": [],
         "style": {
             "name": "Test",
-            "fonts": {"caption": {"family": "Caption", "file": font, "capcutResourceId": FONT_ID}, "title": {"family": "Title", "file": font}},
+            "fonts": {"caption": {"family": "Caption", "file": font, "capcutResourceId": FONT_ID}, "title": {"family": "Title", "file": font, "capcutResourceId": TITLE_FONT_ID}},
             "colors": {"text": "#FFFFFF", "highlight": "#FFD100", "accent": "#FF6B35", "ink": "#0E0C0A"},
             "grade": {"warmth": 0.3, "contrast": 0.1, "saturation": 0.12, "brightness": -0.02, "vignette": 0.35},
             "caption": {"size": 0.052, "stroke": 0.08, "shadow": True, "maxCharsPerLine": 22, "intro": "miniZoom"},
@@ -1244,11 +1281,11 @@ def plan_dict(src: Path, font: str) -> dict:
             {"id": "b01", "fromFrame": 9, "toFrame": 27, "file": "bake/b01.mp4"},
             {"id": "b02", "fromFrame": 53, "toFrame": 71, "file": "bake/b02.mp4"},
         ],
-        "overlays": [{"elementId": "t1", "fromFrame": 75, "durationFrames": 15, "file": "overlay/o01.mov"}],
+        "overlays": [{"elementId": "hud1", "fromFrame": 75, "durationFrames": 15, "file": "overlay/o01.mov"}],
         "entries": [
             {"id": "transition:c1", "kind": "subjectSlide", "status": "baked", "reason": "person-only slide, baked into the main track"},
             {"id": "behind", "kind": "image", "status": "baked", "reason": "drawn behind the subject, baked into the main track"},
-            {"id": "t1", "kind": "title", "status": "baked", "reason": "no native CapCut equivalent: transparent overlay (MOV ProRes 4444)"},
+            {"id": "hud1", "kind": "hud.window", "status": "baked", "reason": "no native CapCut equivalent: transparent overlay (MOV ProRes 4444)"},
         ],
         "sources": {
             "s": {"video": str(src / "edit.mp4"), "width": 1080, "height": 1920},
@@ -1257,9 +1294,18 @@ def plan_dict(src: Path, font: str) -> dict:
         },
         "fonts": {
             "caption": {"path": font, "family": "Caption", "resourceId": FONT_ID},
-            "title": {"path": font, "family": "Title", "resourceId": None},
+            "title": {"path": font, "family": "Title", "resourceId": TITLE_FONT_ID},
         },
     }
+
+
+def center_pixel(video: Path) -> tuple[int, int, int]:
+    """RGB of the center pixel of a video's first frame."""
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", "crop=1:1:540:960", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        capture_output=True, check=True,
+    ).stdout
+    return raw[0], raw[1], raw[2]
 
 
 def content_of(dest: Path, profiles) -> dict:
@@ -1298,7 +1344,8 @@ def project(tmp_path_factory):
     prep = root / "renders" / "capcut"
     for d in (src, prep / "bake", prep / "overlay"):
         d.mkdir(parents=True)
-    ffmpeg("-f", "lavfi", "-i", "color=c=red:s=1080x1920:r=30:d=4", "-f", "lavfi", "-i", "sine=frequency=440:duration=4", *H264, str(src / "edit.mp4"))
+    # Gray, so the warmth applied to the copied take is measurable.
+    ffmpeg("-f", "lavfi", "-i", "color=c=gray:s=1080x1920:r=30:d=4", "-f", "lavfi", "-i", "sine=frequency=440:duration=4", *H264, str(src / "edit.mp4"))
     ffmpeg("-f", "lavfi", "-i", "color=c=magenta:s=1080x1920", "-frames:v", "1", str(src / "magenta.png"))
     ffmpeg("-f", "lavfi", "-i", "sine=frequency=880:duration=0.3", str(src / "beep.wav"))
     for b in ("b01", "b02"):
@@ -1614,39 +1661,99 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 8: Captions, front items, sounds, look and the caption font
+### Task 8: Titles, captions, front items, sounds, look and fonts
 
 **Files:**
-- Create: `py/capcut/adam_capcut/fonts.py`
-- Modify: `py/capcut/adam_capcut/build.py`, `py/capcut/adam_capcut/export.py`
-- Test: `py/capcut/tests/test_build.py`, `py/capcut/tests/test_fonts.py`
+- Create: `py/capcut/adam_capcut/titles.py`, `py/capcut/adam_capcut/fonts.py`
+- Modify: `py/capcut/adam_capcut/units.py`, `py/capcut/adam_capcut/media.py`, `py/capcut/adam_capcut/build.py`, `py/capcut/adam_capcut/export.py`
+- Test: `py/capcut/tests/test_titles.py`, `py/capcut/tests/test_fonts.py`, `py/capcut/tests/test_build.py`, `py/capcut/tests/test_units.py`
 
 **Interfaces:**
-- Consumes: `Builder`, `entry`, `build_script` (Task 7), `allocate` (Task 5), units (Task 4), `probe` (Task 7), fixtures and helpers (Task 7).
-- Produces: `CAPTION_SIZE_K`, `BORDER_K`, `INTRO`, `OUTRO`; `Builder.captions()`, `Builder.front()`, `Builder.image(e, tr)`, `Builder.sounds()`, `Builder.look()`; `build_script` calls them all; `apply_caption_font(content, font) -> str`.
+- Consumes: `Builder`, `entry`, `build_script`, `copy_media`, `probe` (Task 7), `allocate` (Task 5), units (Task 4), fixtures and helpers including `TITLE_FONT_ID` and `center_pixel` (Task 7).
+- Produces: `warmth_filter(warmth) -> str` (units); `js_round`, `fit_font_size(text, max_width, max_size)`, `title_texts(el, width, height, fps) -> list[dict]`, `big_word_text(el, width, height) -> dict` (titles; each text is `{"role": "kicker" | "line" | "word", "text", "px", "box", "color" (style color name or hex), "intro" (ms, 0 for none), "x", "y" (normalized center), "from", "to" (frames)}`); `apply_fonts(content, fonts, roles) -> str` (fonts); `CAPTION_SIZE_K`, `BORDER_K`, `INTRO`, `OUTRO`, `color_of(name, colors)`; `Builder.text_track(name)`, `.titles()`, `.captions()`, `.front()`, `.image(e, tr)`, `.sounds()`, `.look()`, `.text_roles` (text material id to `"caption"` or `"title"`); `build_script` now returns `(script, entries, roles)`; `copy_media` warms the copied takes when the grade has warmth.
 
 - [ ] **Step 1: Write the failing tests**
+
+`py/capcut/tests/test_titles.py`:
+```python
+import pytest
+
+from adam_capcut.titles import big_word_text, fit_font_size, title_texts
+
+TITLE = {
+    "id": "t1", "kind": "title", "layer": "front", "fromFrame": 90, "durationFrames": 24, "trimStartMs": 0, "x": 0.5, "y": 0.3,
+    "props": {"kicker": "EPISODE 3", "phases": [
+        {"startMs": 0, "endMs": 400, "lines": [{"text": "QUI VEUT", "box": False, "sizeScale": 1}, {"text": "M'EMBAUCHER ?", "box": True, "sizeScale": 1}]},
+        {"startMs": 400, "endMs": 800, "lines": [{"text": "PERSONNE", "box": False, "sizeScale": 1.2}]},
+    ]},
+}
+
+
+def test_fit_font_size_matches_the_renderer():
+    assert fit_font_size("VEUT", 972, 151) == 151
+    assert fit_font_size("M'EMBAUCHER ?", 972, 151) == 124
+
+
+def test_title_lines_are_stacked_like_the_renderer_and_start_with_their_reveal():
+    texts = title_texts(TITLE, 1080, 1920, 30)
+    assert [(t["role"], t["text"], t["from"], t["to"], t["box"], t["color"]) for t in texts] == [
+        ("kicker", "EPISODE 3", 90, 102, False, "accent"),
+        ("line", "QUI VEUT", 92, 102, False, "ink"),
+        ("line", "M'EMBAUCHER ?", 97, 102, True, "ink"),
+        ("line", "PERSONNE", 104, 114, False, "ink"),
+    ]
+    assert [t["px"] for t in texts] == pytest.approx([32.4, 151.2, 124, 181.44])
+    assert [t["y"] for t in texts] == pytest.approx([433 / 1920, 535.6 / 1920, 673.2 / 1920, 0.3])
+
+
+def test_a_title_clamped_at_the_start_skips_what_was_cut():
+    clamped = {**TITLE, "fromFrame": 0, "durationFrames": 12, "trimStartMs": 400}
+    assert [(t["text"], t["from"], t["to"]) for t in title_texts(clamped, 1080, 1920, 30)] == [("PERSONNE", 2, 12)]
+
+
+def test_big_word():
+    word = {"id": "big", "fromFrame": 45, "durationFrames": 9, "x": 0.5, "y": 0.5, "props": {"text": "WOW", "color": "accent", "sizeScale": 1}}
+    t = big_word_text(word, 1080, 1920)
+    assert (t["text"], t["from"], t["to"], t["color"], t["y"]) == ("WOW", 45, 54, "accent", 0.5)
+    assert t["px"] == pytest.approx(226.8)
+```
+
+Expected values: the kicker is 3% of the width (32.4 px) with a 1% gap; "QUI VEUT" is capped at 14% of the width (151.2 px); "M'EMBAUCHER ?" is 13 characters, so 972 / 7.8 floors to 124 px. The phase block is 318.4 px tall, centered on y = 576 px, so it starts at 416.8 px. Lines reveal 80 ms plus 160 ms per line after their phase starts: 2.4 and 7.2 frames, rounded to 2 and 7. "PERSONNE" is 1.2 times 151.2 px. Clamped by 400 ms, the first phase has no frame left and the second starts at frame 0.
 
 `py/capcut/tests/test_fonts.py`:
 ```python
 import json
 
-from adam_capcut.fonts import apply_caption_font
+from adam_capcut.fonts import apply_fonts
+
+FONTS = {
+    "caption": {"path": "C:\\fonts\\a.ttf", "family": "A", "resourceId": "42"},
+    "title": {"path": "C:/fonts/b.ttf", "family": "B", "resourceId": "43"},
+}
 
 
-def test_points_every_text_at_the_caption_font_and_shadows_every_range():
+def test_each_text_gets_the_font_of_its_role_and_every_range_is_shadowed():
     styles = [{"range": [0, 4], "shadows": [{"x": 1}]}, {"range": [4, 8]}]
-    content = json.dumps({"materials": {"texts": [{"id": "t1", "content": json.dumps({"styles": styles})}]}})
-    out = json.loads(apply_caption_font(content, {"path": "C:\\fonts\\a.ttf", "family": "A", "resourceId": "42"}))
-    t = out["materials"]["texts"][0]
-    assert (t["font_path"], t["font_resource_id"], t["fonts"][0]["title"]) == ("C:/fonts/a.ttf", "42", "A")
-    styled = json.loads(t["content"])["styles"]
+    texts = [{"id": "cap", "content": json.dumps({"styles": styles})}, {"id": "tit", "content": json.dumps({"styles": [{"range": [0, 3]}]})}]
+    out = json.loads(apply_fonts(json.dumps({"materials": {"texts": texts}}), FONTS, {"cap": "caption", "tit": "title"}))
+    cap, tit = out["materials"]["texts"]
+    assert (cap["font_path"], cap["font_resource_id"], cap["fonts"][0]["title"]) == ("C:/fonts/a.ttf", "42", "A")
+    assert (tit["font_path"], tit["font_resource_id"], tit["fonts"][0]["title"]) == ("C:/fonts/b.ttf", "43", "B")
+    styled = json.loads(cap["content"])["styles"]
     assert [st["font"] for st in styled] == [{"path": "C:/fonts/a.ttf", "id": "42"}] * 2
     assert styled[1]["shadows"] == [{"x": 1}]
 
 
-def test_leaves_the_content_alone_without_a_capcut_resource_id():
-    assert apply_caption_font("{}", {"path": "x", "family": "A", "resourceId": None}) == "{}"
+def test_a_font_without_capcut_resource_id_is_left_to_capcut():
+    content = json.dumps({"materials": {"texts": [{"id": "cap", "content": "{}"}]}})
+    fonts = {**FONTS, "caption": {"path": "x", "family": "A", "resourceId": None}}
+    assert json.loads(apply_fonts(content, fonts, {"cap": "caption"})) == json.loads(content)
+```
+
+Append to `py/capcut/tests/test_units.py` (and add `warmth_filter` to its import from `adam_capcut.units`):
+```python
+def test_warmth_filter_is_the_renderer_color_matrix():
+    assert warmth_filter(0.35) == "colorchannelmixer=rr=1.042:gg=1.007:bb=0.951"
 ```
 
 `py/capcut/tests/test_build.py`:
@@ -1656,20 +1763,33 @@ import json
 import pytest
 
 from adam_capcut.export import export
-from helpers import FONT_ID, content_of, report_of
+from helpers import FONT_ID, TITLE_FONT_ID, center_pixel, content_of, report_of
 
 
-def test_captions_are_native_text_with_the_style_font_and_highlight(lab, project, tmp_path):
+def texts_by_string(content):
+    return {json.loads(t["content"])["text"]: t for t in content["materials"]["texts"]}
+
+
+def test_captions_are_native_text_with_the_caption_font_and_highlight(lab, project, tmp_path):
     _, profiles = lab
-    dest = export(project, name="captions", projects_root=tmp_path, prepare=False)
-    texts = content_of(dest, profiles)["materials"]["texts"]
-    assert len(texts) == 1
-    assert texts[0]["font_resource_id"] == FONT_ID
-    styles = json.loads(texts[0]["content"])["styles"]
-    # "créé\nma boîte" with "boîte" highlighted: the accents do not shift the range.
+    texts = texts_by_string(content_of(export(project, name="captions", projects_root=tmp_path, prepare=False), profiles))
+    cap = texts["créé\nma boîte"]
+    assert cap["font_resource_id"] == FONT_ID
+    styles = json.loads(cap["content"])["styles"]
+    # "boîte" highlighted: the accents do not shift the range.
     assert [st["range"] for st in styles] == [[0, 8], [8, 13]]
     assert styles[1]["fill"]["content"]["solid"]["color"] == pytest.approx([1.0, 209 / 255, 0.0])
     assert report_of(project, "captions")["cap1"]["status"] == "native"
+
+
+def test_titles_are_editable_texts_with_the_title_font(lab, project, tmp_path):
+    _, profiles = lab
+    texts = texts_by_string(content_of(export(project, name="titles", projects_root=tmp_path, prepare=False), profiles))
+    assert {"EPISODE 3", "QUI VEUT", "M'EMBAUCHER ?", "PERSONNE", "WOW"} <= set(texts)
+    assert {texts[k]["font_resource_id"] for k in ("EPISODE 3", "QUI VEUT", "PERSONNE", "WOW")} == {TITLE_FONT_ID}
+    assert texts["M'EMBAUCHER ?"]["background_color"] == "#FF6B35"
+    r = report_of(project, "titles")
+    assert (r["t1"]["status"], r["big"]["status"]) == ("native", "native")
 
 
 def test_front_images_are_sized_photos_and_overlays_are_videos_on_front_tracks(lab, project, tmp_path):
@@ -1681,7 +1801,7 @@ def test_front_images_are_sized_photos_and_overlays_are_videos_on_front_tracks(l
     assert [len(t["segments"]) for t in front] == [2]
     r = report_of(project, "front")
     assert r["pic"]["status"] == "native" and "RGB Scanlines" in r["pic"]["reason"]
-    assert r["t1"]["status"] == "baked"
+    assert r["hud1"]["status"] == "baked"
 
 
 def test_sound_effects_keep_volume_and_fades(lab, project, tmp_path):
@@ -1694,36 +1814,113 @@ def test_sound_effects_keep_volume_and_fades(lab, project, tmp_path):
     assert report_of(project, "sounds")["beep"]["status"] == "native"
 
 
-def test_vignette_is_native_and_warmth_is_reported(lab, project, tmp_path):
+def test_vignette_is_native_and_warmth_is_applied_to_the_copied_takes(lab, project, tmp_path):
     _, profiles = lab
-    content = content_of(export(project, name="look", projects_root=tmp_path, prepare=False), profiles)
-    assert [e["name"] for e in content["materials"]["video_effects"]] == ["Vignette"]
+    dest = export(project, name="look", projects_root=tmp_path, prepare=False)
+    assert [e["name"] for e in content_of(dest, profiles)["materials"]["video_effects"]] == ["Vignette"]
+    r0, _, b0 = center_pixel(project / "media-src" / "edit.mp4")
+    r1, _, b1 = center_pixel(dest / "media" / "v01.mp4")
+    assert abs(r0 - b0) <= 3, "the source take is neutral gray"
+    assert r1 - b1 >= 8, "the copied take is warmer"
     r = report_of(project, "look")
-    assert r["grade"]["status"] == "native"
-    assert r["grade.vignette"]["status"] == "native"
-    assert r["grade.warmth"]["status"] == "skipped"
+    assert (r["grade"]["status"], r["grade.vignette"]["status"], r["grade.warmth"]["status"]) == ("native", "native", "baked")
 ```
+
+Expected values: warmth 0.3 on gray 128 gives red about 133 and blue about 123.
 
 - [ ] **Step 2: Run them to see them fail**
 
 Run: `py/capcut/.venv/Scripts/python -m pytest py/capcut`
-Expected: `test_fonts.py` FAILS with `ModuleNotFoundError: No module named 'adam_capcut.fonts'`; the 4 tests of `test_build.py` FAIL (no texts, no photos, no audio tracks, no effects).
+Expected: `test_titles.py` and `test_fonts.py` FAIL with `ModuleNotFoundError` (`adam_capcut.titles`, `adam_capcut.fonts`); `test_units.py` FAILS on the import of `warmth_filter`; the 5 tests of `test_build.py` FAIL (no texts, no photos, no audio tracks, no effects, the copied take is not warmer).
 
-- [ ] **Step 3: Implement the caption font**
+- [ ] **Step 3: Implement the title layout and the warmth filter**
+
+`py/capcut/adam_capcut/titles.py`:
+```python
+"""The renderer's titles as CapCut texts: one editable text per line, laid out like the renderer's Title and BigWord."""
+import math
+
+GLYPH_EM = 0.6
+REVEAL_DELAY_MS = 80
+STAGGER_MS = 160
+REVEAL_MS = 240
+
+
+def js_round(x: float) -> int:
+    """Math.round of the renderer (Python's round() rounds halves to even)."""
+    return math.floor(x + 0.5)
+
+
+def fit_font_size(text: str, max_width: float, max_size: float, glyph_em: float = GLYPH_EM) -> float:
+    """The renderer's fitFontSize: the longest line fits max_width, capped at max_size."""
+    longest = max(1, *(len(line) for line in text.split("\n")))
+    return min(max_size, math.floor(max_width / (longest * glyph_em)))
+
+
+def title_texts(el: dict, width: int, height: int, fps: int) -> list[dict]:
+    """Per phase: the kicker (first phase only) and one text per line, stacked and centered on the element's
+    point, each starting when its reveal starts and ending with its phase."""
+    props = el["props"]
+    start, end = el["fromFrame"], el["fromFrame"] + el["durationFrames"]
+
+    def frame(ms: float) -> int:
+        return start + js_round((ms - el["trimStartMs"]) * fps / 1000)
+
+    out: list[dict] = []
+    for n, phase in enumerate(props["phases"]):
+        p_from, p_to = max(start, frame(phase["startMs"])), min(end, frame(phase["endMs"]))
+        if p_to <= p_from:
+            continue
+        rows = []
+        if n == 0 and props.get("kicker"):
+            rows.append({"role": "kicker", "text": props["kicker"], "px": width * 0.03, "gap": width * 0.01, "box": False,
+                         "color": "accent", "intro": 0, "from": p_from})
+        for i, line in enumerate(phase["lines"]):
+            px = fit_font_size(line["text"], width * 0.9, width * 0.14 * line.get("sizeScale", 1))
+            reveal = frame(phase["startMs"] + REVEAL_DELAY_MS + i * STAGGER_MS)
+            rows.append({"role": "line", "text": line["text"], "px": px, "gap": 0, "box": line.get("box", False),
+                         "color": "ink", "intro": REVEAL_MS, "from": min(p_to - 1, max(p_from, reveal))})
+        top = el["y"] * height - sum(r["px"] + r["gap"] for r in rows) / 2
+        for r in rows:
+            out.append({"role": r["role"], "text": r["text"], "px": r["px"], "box": r["box"], "color": r["color"], "intro": r["intro"],
+                        "x": el["x"], "y": (top + r["px"] / 2) / height, "from": r["from"], "to": p_to})
+            top += r["px"] + r["gap"]
+    return out
+
+
+def big_word_text(el: dict, width: int, height: int) -> dict:
+    """The renderer's BigWord (text.behindSubject drawn in front) as one CapCut text."""
+    props = el["props"]
+    px = fit_font_size(props["text"], width * 0.92, width * 0.21 * props.get("sizeScale", 1))
+    return {"role": "word", "text": props["text"], "px": px, "box": False, "color": props.get("color", "accent"), "intro": 250,
+            "x": el["x"], "y": el["y"], "from": el["fromFrame"], "to": el["fromFrame"] + el["durationFrames"]}
+```
+
+Append to `py/capcut/adam_capcut/units.py`:
+```python
+def warmth_filter(warmth: float) -> str:
+    """The renderer's warmth color matrix as an ffmpeg filter (red up, green slightly, blue down)."""
+    return f"colorchannelmixer=rr={round(1 + 0.12 * warmth, 4)}:gg={round(1 + 0.02 * warmth, 4)}:bb={round(1 - 0.14 * warmth, 4)}"
+```
+
+- [ ] **Step 4: Implement the fonts and the warmed copies**
 
 `py/capcut/adam_capcut/fonts.py`:
 ```python
-"""The style's caption font on every CapCut text, written like CapCut does (lab: build_edit.py apply_font)."""
+"""Each CapCut text gets the style font of its role, written like CapCut does (lab: build_edit.py apply_font)."""
 import json
 
 
-def apply_caption_font(content: str, font: dict) -> str:
-    rid = font.get("resourceId")
-    if not rid:
-        return content
-    path = font["path"].replace("\\", "/")
+def apply_fonts(content: str, fonts: dict, roles: dict[str, str]) -> str:
+    """fonts: {"caption": {path, family, resourceId}, "title": {...}}; roles: text material id to "caption" or "title".
+    A font without a CapCut resource id is left to CapCut (its default font)."""
     d = json.loads(content)
     for m in d["materials"]["texts"]:
+        font = fonts.get(roles.get(m["id"], ""), {})
+        rid = font.get("resourceId")
+        if not rid:
+            continue
+        path = font["path"].replace("\\", "/")
         m["font_path"] = path
         m["font_resource_id"] = rid
         m["font_id"] = ""
@@ -1743,20 +1940,42 @@ def apply_caption_font(content: str, font: dict) -> str:
     return json.dumps(d, ensure_ascii=False)
 ```
 
-In `py/capcut/adam_capcut/export.py`, add the import:
+In `py/capcut/adam_capcut/media.py`, add `from .units import warmth_filter` to the imports, add this function after `probe`:
 ```python
-from .fonts import apply_caption_font
+def warm_copy(src: Path, dst: Path, warmth: float, fps: int) -> None:
+    """Re-encodes a take with the renderer's warmth matrix, keeping the GOP rule, so CapCut matches the MP4."""
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-i", str(src), "-vf", warmth_filter(warmth), "-c:v", "libx264", "-crf", "16",
+         "-preset", "medium", "-g", str(fps), "-bf", "0", "-pix_fmt", "yuv420p", "-c:a", "copy", str(dst)],
+        check=True,
+    )
 ```
-and replace:
+and in `copy_media`, replace the videos loop:
 ```python
-    profiles.write_profile_content(profile, dest, script.dumps(profile))
+    for i, asset in enumerate(sorted({c["asset"] for c in timeline["clips"]}), 1):
+        video = sources.get(asset, {}).get("video")
+        if not video:
+            raise ExportError(f'no video file for asset "{asset}" in the prepared plan')
+        dst = copy(Path(video), f"v{i:02d}")
+        out["videos"][asset] = (dst, probe(dst))
 ```
 with:
 ```python
-    profiles.write_profile_content(profile, dest, apply_caption_font(script.dumps(profile), plan["fonts"]["caption"]))
+    warmth = timeline["style"]["grade"]["warmth"]
+    for i, asset in enumerate(sorted({c["asset"] for c in timeline["clips"]}), 1):
+        video = sources.get(asset, {}).get("video")
+        if not video or not Path(video).is_file():
+            raise ExportError(f'no video file for asset "{asset}" in the prepared plan')
+        if warmth:
+            # CapCut has no warmth keyframe: the take itself is warmed (baked stretches are warmed by Remotion).
+            dst = media_dir / f"v{i:02d}.mp4"
+            warm_copy(Path(video), dst, warmth, timeline["fps"])
+        else:
+            dst = copy(Path(video), f"v{i:02d}")
+        out["videos"][asset] = (dst, probe(dst))
 ```
 
-- [ ] **Step 4: Implement captions, front items, sounds and look**
+- [ ] **Step 5: Implement titles, captions, front items, sounds and look**
 
 In `py/capcut/adam_capcut/build.py`, replace the imports with:
 ```python
@@ -1765,11 +1984,12 @@ from pathlib import Path
 
 from .layout import main_track
 from .media import probe
+from .titles import big_word_text, title_texts
 from .tracks import allocate
 from .units import cover_scale, crop_rect_at, crop_transform, hex_rgb, image_scale, ms_us, place, span_us, zoom_at
 
-# CapCut font size per unit of the style's caption size (a fraction of the canvas width): the lab's captions
-# were 10.5 for about 0.052. Provisional, checked in CapCut (docs/decisions/0002-capcut-export-check.md).
+# CapCut font size per unit of text size as a fraction of the canvas width: the lab's captions were 10.5 for
+# about 0.052. Provisional, checked in CapCut (docs/decisions/0002-capcut-export-check.md).
 CAPTION_SIZE_K = 200
 # CapCut border width per unit of the style's stroke (a fraction of the font size): the lab used 40 for 0.08.
 BORDER_K = 500
@@ -1777,9 +1997,57 @@ BORDER_K = 500
 INTRO = {"fade": ("Fade_In", 250), "pop": ("Mini_Zoom", 200), "glitch": ("RGB_Scanlines", 200)}
 OUTRO = {"fade": ("Fade_Out", 250), "pop": ("Mini_Zoom", 200), "glitch": ("RGB_Scanlines", 200)}
 APPROX = {"glitch": "glitch approximated by RGB Scanlines"}
+TITLE_OUTRO_MS = 160
+
+
+def color_of(name: str, colors: dict) -> str:
+    """A style color by name ("accent", "ink", "text", "highlight"), or the value itself (the renderer's colorOf)."""
+    return colors.get(name, name)
+```
+in `Builder.__init__`, add after `self.materials: dict = {}`:
+```python
+        self.text_roles: dict[str, str] = {}
+        self.text_tracks = 0
 ```
 add these methods to `Builder` (after `clip_part`):
 ```python
+    def text_track(self, name: str) -> str:
+        """Text tracks stack in creation order: titles first, captions above them (as in the renderer)."""
+        self.script.add_track(self.p.Track_type.text, name, relative_index=self.text_tracks)
+        self.text_tracks += 1
+        return name
+
+    def titles(self) -> None:
+        """Titles and front big words as editable CapCut texts, one per line."""
+        p, style, (w, h) = self.p, self.tl["style"], self.canvas
+        texts = []
+        for e in self.tl["elements"]:
+            if e["layer"] != "front":
+                continue
+            if e["kind"] == "title":
+                texts += title_texts(e, w, h, self.fps)
+                self.entries.append(entry(e["id"], "title", "native", "CapCut text, one per line (the reveal is approximated by Glitch intros)"))
+            elif e["kind"] == "text.behindSubject":
+                texts.append(big_word_text(e, w, h))
+                self.entries.append(entry(e["id"], e["kind"], "native", "CapCut text"))
+        texts.sort(key=lambda t: t["from"])
+        tracks = allocate([(t["from"], t["to"]) for t in texts])
+        names = [self.text_track(f"titles{i + 1}") for i in range(max(tracks, default=-1) + 1)]
+        for t, k in zip(texts, tracks):
+            x, y = place(t["x"], t["y"])
+            tr = self.span(t["from"], t["to"])
+            seg = p.Text_segment(
+                t["text"], tr,
+                style=p.Text_style(size=t["px"] / w * CAPTION_SIZE_K, color=hex_rgb(color_of(t["color"], style["colors"])), align=1),
+                background=p.Text_background(color=style["colors"]["accent"]) if t["box"] else None,
+                clip_settings=p.Clip_settings(transform_x=x, transform_y=y),
+            )
+            if t["intro"]:
+                seg.add_animation(p.CapCut_Text_intro.Glitch, duration=min(ms_us(t["intro"]), tr.duration // 2))
+            seg.add_animation(p.CapCut_Text_outro.Glitch, duration=min(ms_us(TITLE_OUTRO_MS), tr.duration // 2))
+            self.text_roles[seg.material_id] = "title"
+            self.script.add_segment(seg, names[k])
+
     def captions(self) -> None:
         p, style = self.p, self.tl["style"]
         cap = style["caption"]
@@ -1788,9 +2056,8 @@ add these methods to `Builder` (after `clip_part`):
         shadow = p.Text_shadow(has_shadow=True, alpha=0.55, distance=4.0, smoothing=0.6, angle=-60.0) if cap["shadow"] else None
         caps = sorted(self.tl["captions"], key=lambda c: c["fromFrame"])
         tracks = allocate([(c["fromFrame"], c["fromFrame"] + c["durationFrames"]) for c in caps])
-        for i in range(max(tracks, default=-1) + 1):
-            self.script.add_track(p.Track_type.text, f"captions{i + 1}", relative_index=i)
-        for c, t in zip(caps, tracks):
+        names = [self.text_track(f"captions{i + 1}") for i in range(max(tracks, default=-1) + 1)]
+        for c, k in zip(caps, tracks):
             x, y = place(c["x"], c["y"])
             tr = self.span(c["fromFrame"], c["fromFrame"] + c["durationFrames"])
             seg = p.Text_segment(c["text"], tr, style=p.Text_style(size=size, color=hex_rgb(style["colors"]["text"]), align=1),
@@ -1801,11 +2068,9 @@ add these methods to `Builder` (after `clip_part`):
                     a, b, p.Text_style(size=size, color=hex_rgb(style["colors"]["highlight"]), align=1), border=border))
             if cap["intro"] == "miniZoom":
                 seg.add_animation(p.CapCut_Text_intro.Mini_Zoom, duration=min(150_000, tr.duration // 3))
-            self.script.add_segment(seg, f"captions{t + 1}")
+            self.text_roles[seg.material_id] = "caption"
+            self.script.add_segment(seg, names[k])
             self.entries.append(entry(c["id"], "caption", "native", "CapCut text"))
-        font = self.plan["fonts"]["caption"]
-        if caps and not font.get("resourceId"):
-            self.entries.append(entry("font.caption", "font", "skipped", f'no capcutResourceId for "{font["family"]}" in the style: CapCut shows its default font'))
 
     def front(self) -> None:
         """Front images (native photos) and overlays (transparent MOV), one video track per overlap level."""
@@ -1822,14 +2087,14 @@ add these methods to `Builder` (after `clip_part`):
         tracks = allocate([(e["fromFrame"], e["fromFrame"] + e["durationFrames"]) for _, e in items])
         for i in range(max(tracks, default=-1) + 1):
             self.script.add_track(p.Track_type.video, f"front{i + 1}", relative_index=i + 1)
-        for (kind, e), t in zip(items, tracks):
+        for (kind, e), k in zip(items, tracks):
             tr = self.span(e["fromFrame"], e["fromFrame"] + e["durationFrames"])
             if kind == "overlay":
                 path, info = self.media["overlays"][e["id"]]
                 seg = p.Video_segment(self.video_material(("overlay", e["id"]), path, info), tr, source_timerange=p.Timerange(0, tr.duration), volume=0.0)
             else:
                 seg = self.image(e, tr)
-            self.script.add_segment(seg, f"front{t + 1}")
+            self.script.add_segment(seg, f"front{k + 1}")
 
     def image(self, e: dict, tr):
         p, props = self.p, e["props"]
@@ -1870,7 +2135,7 @@ add these methods to `Builder` (after `clip_part`):
         tracks = allocate([(a["fromFrame"], a["fromFrame"] + a["durationFrames"]) for a in sfx])
         for i in range(max(tracks, default=-1) + 1):
             self.script.add_track(p.Track_type.audio, f"sfx{i + 1}")
-        for a, t in zip(sfx, tracks):
+        for a, k in zip(sfx, tracks):
             key = ("audio", a["asset"])
             if key not in self.materials:
                 m = p.Audio_material(path=str(self.media["files"][a["asset"]]))
@@ -1880,7 +2145,7 @@ add these methods to `Builder` (after `clip_part`):
             seg = p.Audio_segment(self.materials[key], tr, source_timerange=p.Timerange(ms_us(a["sourceInMs"]), tr.duration), volume=a["volume"])
             if a["fadeInMs"] or a["fadeOutMs"]:
                 seg.add_fade(ms_us(a["fadeInMs"]), ms_us(a["fadeOutMs"]))
-            self.script.add_segment(seg, f"sfx{t + 1}")
+            self.script.add_segment(seg, f"sfx{k + 1}")
             self.entries.append(entry(a["id"], "sfx", "native", "audio segment"))
 
     def look(self) -> None:
@@ -1894,8 +2159,15 @@ add these methods to `Builder` (after `clip_part`):
                                    params=[round(g["vignette"] * 100)])
             self.entries.append(entry("grade.vignette", "grade", "native", "Vignette effect over the whole video"))
         if g["warmth"]:
-            self.entries.append(entry("grade.warmth", "grade", "skipped",
-                                      f"CapCut has no warmth keyframe: add an Adjust layer with Temperature by hand (warmth {g['warmth']})"))
+            self.entries.append(entry("grade.warmth", "grade", "baked",
+                                      f"warmth {g['warmth']} applied to the copied takes and the baked stretches with the renderer's color matrix"))
+
+    def font_entries(self) -> None:
+        for role in sorted(set(self.text_roles.values())):
+            font = self.plan["fonts"][role]
+            if not font.get("resourceId"):
+                self.entries.append(entry(f"font.{role}", "font", "skipped",
+                                          f'no capcutResourceId for "{font["family"]}" in the style: CapCut shows its default font'))
 ```
 and replace `build_script` with:
 ```python
@@ -1903,22 +2175,39 @@ def build_script(pjd, timeline: dict, plan: dict, media: dict):
     b = Builder(pjd, timeline, plan, media)
     b.main_track()
     b.front()
+    b.titles()
     b.captions()
     b.sounds()
     b.look()
-    return b.script, b.entries
+    b.font_entries()
+    return b.script, b.entries, b.text_roles
 ```
 
-- [ ] **Step 5: Run the tests**
+In `py/capcut/adam_capcut/export.py`, add the import:
+```python
+from .fonts import apply_fonts
+```
+and replace:
+```python
+    script, entries = build_script(pjd, timeline, plan, media)
+    profiles.write_profile_content(profile, dest, script.dumps(profile))
+```
+with:
+```python
+    script, entries, roles = build_script(pjd, timeline, plan, media)
+    profiles.write_profile_content(profile, dest, apply_fonts(script.dumps(profile), plan["fonts"], roles))
+```
+
+- [ ] **Step 6: Run the tests**
 
 Run: `py/capcut/.venv/Scripts/python -m pytest py/capcut`
-Expected: 30 tests PASS.
+Expected: 36 tests PASS.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add py/capcut
-git commit -m "feat(capcut): native captions with the style font, photos, overlays, sound effects, vignette
+git commit -m "feat(capcut): editable titles, native captions, photos, overlays, sound effects, vignette and warmed takes
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -1981,11 +2270,12 @@ def test_exports_the_synthetic_project_through_the_prepare_step(lab, tmp_path, c
     assert main(["export", str(project), "--projects-root", str(tmp_path / "capcut")]) == 0
     dest = Path(capsys.readouterr().out.strip().splitlines()[-1])
     content = content_of(dest, profiles)
-    main = next(t for t in content["tracks"] if t["name"] == "main")
-    assert len(main["segments"]) == 5
-    assert any(t["name"].startswith("front") for t in content["tracks"])
+    track = next(t for t in content["tracks"] if t["name"] == "main")
+    assert len(track["segments"]) == 5
+    texts = {json.loads(t["content"])["text"] for t in content["materials"]["texts"]}
+    assert {"red blue", "HELLO"} <= texts
     r = report_of(project, "synthetic")
-    assert (r["behind"]["status"], r["t1"]["status"], r["beep"]["status"]) == ("baked", "baked", "native")
+    assert (r["behind"]["status"], r["t1"]["status"], r["beep"]["status"]) == ("baked", "native", "native")
 ```
 
 - [ ] **Step 2: Run them to see them fail**
@@ -2031,7 +2321,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run all the Python tests**
 
 Run: `py/capcut/.venv/Scripts/python -m pytest py/capcut` then `py/capcut/.venv/Scripts/python -m pytest py/capcut -m e2e`
-Expected: 32 tests PASS, then 1 end-to-end test PASSES (about 1 to 2 minutes).
+Expected: 38 tests PASS, then 1 end-to-end test PASSES (about 1 to 2 minutes).
 
 - [ ] **Step 5: Document the export**
 
@@ -2039,10 +2329,12 @@ In `README.md`, add this section (after the existing usage section):
 ````markdown
 ## Export to CapCut
 
-The exporter writes a CapCut Desktop project: native clips, captions, photos and sound effects where
-CapCut has an equivalent, Remotion renders for the rest (behind-subject effects and person-only slides
-baked into the main track, titles as transparent ProRes 4444 overlays). It needs the patched
-pyJianYingDraft of the ClaudeCapcut lab (`ADAM_CAPCUT_LAB`, default `~/ClaudeCapcut/VectCutAPI`).
+The exporter writes a CapCut Desktop project: native clips, editable titles and captions (one CapCut
+text per title line, with the style fonts), photos and sound effects where CapCut has an equivalent, and
+Remotion renders for the rest (behind-subject effects and person-only slides baked into the main track,
+kinds without a native equivalent as transparent ProRes 4444 overlays). The style's warmth is applied to
+the copied takes; brightness, contrast, saturation and vignette stay adjustable in CapCut. It needs the
+patched pyJianYingDraft of the ClaudeCapcut lab (`ADAM_CAPCUT_LAB`, default `~/ClaudeCapcut/VectCutAPI`).
 
 ```
 python -m venv py/capcut/.venv
@@ -2074,7 +2366,8 @@ How: add a title to the demo project, export it, open it in CapCut Desktop, comp
 | 0.3 to 0.9 s | magenta image behind the green square (baked) | to fill |
 | 1.8 to 2.4 s | the square slides out left and back from the right over gray (baked) | to fill |
 | 0.2 to 1.4 s | caption "red blue", "blue" in yellow, size close to the MP4 | to fill |
-| 2.5 to 3.0 s | the title "HELLO" over the video, background transparent | to fill |
+| 2.5 to 3.0 s | the title "HELLO" as CapCut text you can edit, title font, Glitch entrance | to fill |
+| Grade | the take as warm as in the MP4; brightness, contrast, saturation and vignette adjustable | to fill |
 | 1.0 s | the beep is heard | to fill |
 
 Decision: filled in after the check (caption size factor kept or corrected, anything CapCut rejects).
@@ -2092,7 +2385,7 @@ Expected: the first prints the CapCut project folder (`...\com.lveditor.draft\ad
 - [ ] **Step 7: Run everything and commit**
 
 Run: `npm test`, `npm run typecheck`, `npm run test:e2e -w @adam-studio/render`, `py/capcut/.venv/Scripts/python -m pytest py/capcut`
-Expected: model and render unit suites PASS, typecheck exit code 0, 14 render end-to-end tests PASS, 32 Python tests PASS.
+Expected: model and render unit suites PASS, typecheck exit code 0, 14 render end-to-end tests PASS, 38 Python tests PASS.
 
 ```bash
 git add py/capcut README.md docs/decisions/0002-capcut-export-check.md

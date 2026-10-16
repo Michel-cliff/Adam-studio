@@ -339,9 +339,9 @@ Mapping, native whenever possible:
 
 | Timeline item | CapCut |
 |---|---|
-| clips, framing | video segments; cover and crop via scale, position and crop; `fit` with blurred background via CapCut's native background blur; `split` as two video tracks |
-| grade | native brightness, contrast, saturation keyframes; warmth is approximated (documented gap) |
-| captions, simple titles | native text with the style font (CapCut resource id), colors, highlight ranges, stroke, shadow, mapped intro presets |
+| clips, framing | video segments; cover and crop via scale and position keyframes; `fit` with blurred background via CapCut's native background blur; `split` clips baked by Remotion |
+| grade | native brightness, contrast, saturation keyframes and Vignette effect; warmth applied to the copied takes and baked stretches with the renderer's color matrix (CapCut has no warmth keyframe) |
+| captions, titles | native, editable text with the style fonts (CapCut resource ids), colors, highlight ranges, stroke, shadow, mapped intro presets; a title is one text per line and per phase, laid out like the renderer |
 | image elements | photo segments (explicit 1080x1920 size) with mapped intro and outro presets |
 | behind-subject elements, subject slides | the affected stretch of the main track is replaced by a clip rendered by Remotion with the effect baked in |
 | elements without a native equivalent | a transparent overlay rendered by Remotion if CapCut accepts alpha video, otherwise baked into the main track |
