@@ -12,3 +12,4 @@ export { anchorMs, createContext, mergeStyle, type ResolveContext } from "./cont
 export * from "./resolve";
 export * from "./text";
 export * from "./captions";
+export * from "./transcript";
