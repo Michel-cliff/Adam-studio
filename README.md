@@ -10,6 +10,9 @@ Status: sub-project 1 (the edit core) in progress. See `docs/superpowers/specs/`
 - `packages/model`: the project format (zod schemas), `resolve()` from word-anchored edits to a frame
   timeline, `lint()` for the reels rules (hook in 3 s, pauses, fillers, duration, narrative beats),
   transcript editing (`cutWords`, `restoreWords`, `trimToWords`), and the guided workflow (`decide()`).
+- `packages/render`: the Remotion composition and the `adam` CLI (`npm run adam -- render | review | decide |
+  studio | capcut-prep <projectDir>`).
+- `py/capcut`: the CapCut exporter (`python -m adam_capcut export <projectDir>`).
 
 ## Development
 
@@ -22,9 +25,26 @@ Requirements: Node 24 or later.
 
 Projects and media live outside this repository; never commit footage or third-party assets.
 
+## Export to CapCut
+
+The exporter writes a CapCut Desktop project: native clips, editable titles and captions (one CapCut
+text per title line, with the style fonts), photos and sound effects where CapCut has an equivalent, and
+Remotion renders for the rest (behind-subject effects and person-only slides baked into the main track,
+kinds without a native equivalent as transparent ProRes 4444 overlays). The style's warmth is applied to
+the copied takes; brightness, contrast, saturation and vignette stay adjustable in CapCut. It needs the
+patched pyJianYingDraft of the ClaudeCapcut lab (`ADAM_CAPCUT_LAB`, default `~/ClaudeCapcut/VectCutAPI`).
+
+    python -m venv py/capcut/.venv
+    py/capcut/.venv/Scripts/python -m pip install -e "py/capcut[dev]"
+    py/capcut/.venv/Scripts/python -m adam_capcut export <projectDir> [--name "1015 edit"]
+
+It never overwrites a CapCut project it did not create, nor one open in CapCut. Every export writes
+`renders/<name>.capcut-report.json`, listing each item as `native`, `baked` or `skipped` with the reason.
+Tests: `py/capcut/.venv/Scripts/python -m pytest py/capcut` (add `-m e2e` for the full chain).
+
 ## A note on Remotion
 
-The renderer (coming in the next plan) uses Remotion, which is free for individuals and companies of up
+The renderer uses Remotion, which is free for individuals and companies of up
 to 3 people. Larger companies reusing Adam Studio need their own Remotion company license.
 
 ## License
