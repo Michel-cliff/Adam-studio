@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adam-capcut"
+version = "0.1.0"
+description = "Adam Studio CapCut exporter"
+requires-python = ">=3.12"
+dependencies = ["imageio==2.38.1"]
+
+[project.optional-dependencies]
+dev = ["pytest==9.0.3"]
+
+[tool.setuptools]
+packages = ["adam_capcut"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["e2e: runs the TypeScript prepare step and Remotion (slow)"]
+addopts = "-m 'not e2e'"
