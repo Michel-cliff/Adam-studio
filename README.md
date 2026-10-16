@@ -12,6 +12,7 @@ Status: sub-project 1 (the edit core) in progress. See `docs/superpowers/specs/`
   transcript editing (`cutWords`, `restoreWords`, `trimToWords`), and the guided workflow (`decide()`).
 - `packages/render`: the Remotion composition and the `adam` CLI (`npm run adam -- render | review | decide |
   studio | capcut-prep <projectDir>`).
+- `py/analysis`: the analysis pipeline (`python -m adam_analysis run`), called by `npm run adam -- new | add | analyze`.
 - `py/capcut`: the CapCut exporter (`python -m adam_capcut export <projectDir>`).
 
 ## Development
@@ -24,6 +25,22 @@ Requirements: Node 24 or later.
     npm run export-schemas -w @adam-studio/model
 
 Projects and media live outside this repository; never commit footage or third-party assets.
+
+## Analysis
+
+Turns rushes into a project: the edit and proxy videos, the word transcript (Whisper large-v3-turbo) and the
+silences at import; the cut-out (RobustVideoMatting) and the clean plate on demand, when an edit needs them.
+
+    python -m venv py/analysis/.venv
+    py/analysis/.venv/Scripts/python -m pip install torch==2.14.1 torchvision==0.29.1 --index-url https://download.pytorch.org/whl/cpu
+    py/analysis/.venv/Scripts/python -m pip install -e "py/analysis[dev]"
+    npm run adam -- new <projectDir> <videos...> [--lang fr] [--format 9:16]
+    npm run adam -- add <projectDir> <videos...>
+    npm run adam -- analyze <projectDir> [--assets c01] [--steps subject,plate] [--force]
+
+The first run downloads the models (about 1.6 GB for Whisper). `render`, `review`, `studio` and `capcut-prep` run
+the missing analysis themselves; `--no-analyze` turns that off. Tests: `py/analysis/.venv/Scripts/python -m pytest
+py/analysis` (`-m "not slow"` skips Whisper and matting).
 
 ## Export to CapCut
 
