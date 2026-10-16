@@ -1,0 +1,18 @@
+{
+  "name": "@adam-studio/model",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "export-schemas": "tsx scripts/export-schemas.ts"
+  },
+  "dependencies": { "zod": "^4.6.7" },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
