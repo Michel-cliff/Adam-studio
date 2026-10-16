@@ -34,7 +34,9 @@ driver, but the public repo never contains personal footage or third-party asset
 4. **Web app**: preview, timeline, transcript editing, inspectors.
 5. **Series style**: Project Adam templates (title, HUD, colors, fonts, sounds, slots).
 6. **Effects library**: native HUD kinds, behind-subject effects, screen zooms, Lottie, GL transitions.
-7. **Asset library**: search connectors (Freesound CC0, Openverse, Pexels, Pixabay, LottieFiles).
+7. **Asset library**: a local **Inspiration** folder where the creator drops reference videos, fonts,
+   effects and other material for Claude to pick from first, plus search connectors (Freesound CC0,
+   Openverse, Pexels, Pixabay, LottieFiles).
 8. **Insights**: TikTok and Instagram connections to rank the creator's own videos by performance, relate
    it to format, framework and pacing, and watch public content of chosen creators; suggestions surface
    through the MCP server.
