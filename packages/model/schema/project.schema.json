@@ -29,7 +29,8 @@
       "required": [
         "format",
         "fps"
-      ]
+      ],
+      "additionalProperties": false
     },
     "style": {
       "type": "string",
@@ -87,14 +88,16 @@
               "hasAudio": {
                 "type": "boolean"
               }
-            }
+            },
+            "additionalProperties": false
           }
         },
         "required": [
           "id",
           "kind",
           "path"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "transcript": {
@@ -142,11 +145,13 @@
                 "text",
                 "startMs",
                 "endMs"
-              ]
+              ],
+              "additionalProperties": false
             }
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "story": {
       "minItems": 1,
@@ -187,7 +192,8 @@
                 },
                 "required": [
                   "mode"
-                ]
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "object",
@@ -210,7 +216,8 @@
                 },
                 "required": [
                   "mode"
-                ]
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "object",
@@ -248,7 +255,8 @@
                       "y",
                       "w",
                       "h"
-                    ]
+                    ],
+                    "additionalProperties": false
                   },
                   "keyframes": {
                     "default": [],
@@ -290,20 +298,23 @@
                             "y",
                             "w",
                             "h"
-                          ]
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "atMs",
                         "rect"
-                      ]
+                      ],
+                      "additionalProperties": false
                     }
                   }
                 },
                 "required": [
                   "mode",
                   "rect"
-                ]
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "object",
@@ -324,7 +335,8 @@
                 "required": [
                   "mode",
                   "asset"
-                ]
+                ],
+                "additionalProperties": false
               }
             ]
           },
@@ -344,7 +356,8 @@
                 "default": 0,
                 "type": "number"
               }
-            }
+            },
+            "additionalProperties": false
           },
           "transitionOut": {
             "default": {
@@ -361,7 +374,8 @@
                 },
                 "required": [
                   "kind"
-                ]
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "object",
@@ -379,7 +393,8 @@
                 "required": [
                   "kind",
                   "durationMs"
-                ]
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "object",
@@ -400,7 +415,8 @@
                 "required": [
                   "kind",
                   "durationMs"
-                ]
+                ],
+                "additionalProperties": false
               }
             ]
           },
@@ -415,7 +431,8 @@
           "asset",
           "inMs",
           "outMs"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "elements": {
@@ -458,7 +475,8 @@
                 },
                 "required": [
                   "word"
-                ]
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "object",
@@ -471,7 +489,8 @@
                 },
                 "required": [
                   "atMs"
-                ]
+                ],
+                "additionalProperties": false
               }
             ]
           },
@@ -508,7 +527,8 @@
             "required": [
               "x",
               "y"
-            ]
+            ],
+            "additionalProperties": false
           },
           "props": {
             "default": {},
@@ -523,7 +543,8 @@
           "id",
           "kind",
           "anchor"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "captions": {
@@ -567,7 +588,8 @@
         "required": [
           "words",
           "text"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "structure": {
@@ -600,13 +622,15 @@
               "role",
               "from",
               "to"
-            ]
+            ],
+            "additionalProperties": false
           }
         }
       },
       "required": [
         "framework"
-      ]
+      ],
+      "additionalProperties": false
     },
     "workflow": {
       "type": "object",
@@ -662,7 +686,8 @@
       "required": [
         "current",
         "steps"
-      ]
+      ],
+      "additionalProperties": false
     },
     "proposals": {
       "default": [],
@@ -705,7 +730,8 @@
                 },
                 "required": [
                   "word"
-                ]
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "object",
@@ -718,7 +744,8 @@
                 },
                 "required": [
                   "atMs"
-                ]
+                ],
+                "additionalProperties": false
               }
             ]
           },
@@ -786,7 +813,8 @@
                                 },
                                 "required": [
                                   "word"
-                                ]
+                                ],
+                                "additionalProperties": false
                               },
                               {
                                 "type": "object",
@@ -799,7 +827,8 @@
                                 },
                                 "required": [
                                   "atMs"
-                                ]
+                                ],
+                                "additionalProperties": false
                               }
                             ]
                           },
@@ -836,7 +865,8 @@
                             "required": [
                               "x",
                               "y"
-                            ]
+                            ],
+                            "additionalProperties": false
                           },
                           "props": {
                             "default": {},
@@ -851,7 +881,8 @@
                           "id",
                           "kind",
                           "anchor"
-                        ]
+                        ],
+                        "additionalProperties": false
                       }
                     },
                     "addCaptions": {
@@ -894,7 +925,8 @@
                         "required": [
                           "words",
                           "text"
-                        ]
+                        ],
+                        "additionalProperties": false
                       }
                     },
                     "setStory": {
@@ -936,7 +968,8 @@
                                 },
                                 "required": [
                                   "mode"
-                                ]
+                                ],
+                                "additionalProperties": false
                               },
                               {
                                 "type": "object",
@@ -959,7 +992,8 @@
                                 },
                                 "required": [
                                   "mode"
-                                ]
+                                ],
+                                "additionalProperties": false
                               },
                               {
                                 "type": "object",
@@ -997,7 +1031,8 @@
                                       "y",
                                       "w",
                                       "h"
-                                    ]
+                                    ],
+                                    "additionalProperties": false
                                   },
                                   "keyframes": {
                                     "default": [],
@@ -1039,20 +1074,23 @@
                                             "y",
                                             "w",
                                             "h"
-                                          ]
+                                          ],
+                                          "additionalProperties": false
                                         }
                                       },
                                       "required": [
                                         "atMs",
                                         "rect"
-                                      ]
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   }
                                 },
                                 "required": [
                                   "mode",
                                   "rect"
-                                ]
+                                ],
+                                "additionalProperties": false
                               },
                               {
                                 "type": "object",
@@ -1073,7 +1111,8 @@
                                 "required": [
                                   "mode",
                                   "asset"
-                                ]
+                                ],
+                                "additionalProperties": false
                               }
                             ]
                           },
@@ -1093,7 +1132,8 @@
                                 "default": 0,
                                 "type": "number"
                               }
-                            }
+                            },
+                            "additionalProperties": false
                           },
                           "transitionOut": {
                             "default": {
@@ -1110,7 +1150,8 @@
                                 },
                                 "required": [
                                   "kind"
-                                ]
+                                ],
+                                "additionalProperties": false
                               },
                               {
                                 "type": "object",
@@ -1128,7 +1169,8 @@
                                 "required": [
                                   "kind",
                                   "durationMs"
-                                ]
+                                ],
+                                "additionalProperties": false
                               },
                               {
                                 "type": "object",
@@ -1149,7 +1191,8 @@
                                 "required": [
                                   "kind",
                                   "durationMs"
-                                ]
+                                ],
+                                "additionalProperties": false
                               }
                             ]
                           },
@@ -1164,7 +1207,8 @@
                           "asset",
                           "inMs",
                           "outMs"
-                        ]
+                        ],
+                        "additionalProperties": false
                       }
                     },
                     "setStructure": {
@@ -1197,13 +1241,15 @@
                               "role",
                               "from",
                               "to"
-                            ]
+                            ],
+                            "additionalProperties": false
                           }
                         }
                       },
                       "required": [
                         "framework"
-                      ]
+                      ],
+                      "additionalProperties": false
                     },
                     "setStyle": {
                       "type": "object",
@@ -1218,14 +1264,16 @@
                         "type": "string"
                       }
                     }
-                  }
+                  },
+                  "additionalProperties": false
                 }
               },
               "required": [
                 "key",
                 "label",
                 "patch"
-              ]
+              ],
+              "additionalProperties": false
             }
           },
           "status": {
@@ -1253,7 +1301,8 @@
                 },
                 "required": [
                   "accepted"
-                ]
+                ],
+                "additionalProperties": false
               }
             ]
           },
@@ -1322,7 +1371,8 @@
                                       },
                                       "required": [
                                         "word"
-                                      ]
+                                      ],
+                                      "additionalProperties": false
                                     },
                                     {
                                       "type": "object",
@@ -1335,7 +1385,8 @@
                                       },
                                       "required": [
                                         "atMs"
-                                      ]
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   ]
                                 },
@@ -1372,7 +1423,8 @@
                                   "required": [
                                     "x",
                                     "y"
-                                  ]
+                                  ],
+                                  "additionalProperties": false
                                 },
                                 "props": {
                                   "default": {},
@@ -1387,7 +1439,8 @@
                                 "id",
                                 "kind",
                                 "anchor"
-                              ]
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "addCaptions": {
@@ -1430,7 +1483,8 @@
                               "required": [
                                 "words",
                                 "text"
-                              ]
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "setStory": {
@@ -1472,7 +1526,8 @@
                                       },
                                       "required": [
                                         "mode"
-                                      ]
+                                      ],
+                                      "additionalProperties": false
                                     },
                                     {
                                       "type": "object",
@@ -1495,7 +1550,8 @@
                                       },
                                       "required": [
                                         "mode"
-                                      ]
+                                      ],
+                                      "additionalProperties": false
                                     },
                                     {
                                       "type": "object",
@@ -1533,7 +1589,8 @@
                                             "y",
                                             "w",
                                             "h"
-                                          ]
+                                          ],
+                                          "additionalProperties": false
                                         },
                                         "keyframes": {
                                           "default": [],
@@ -1575,20 +1632,23 @@
                                                   "y",
                                                   "w",
                                                   "h"
-                                                ]
+                                                ],
+                                                "additionalProperties": false
                                               }
                                             },
                                             "required": [
                                               "atMs",
                                               "rect"
-                                            ]
+                                            ],
+                                            "additionalProperties": false
                                           }
                                         }
                                       },
                                       "required": [
                                         "mode",
                                         "rect"
-                                      ]
+                                      ],
+                                      "additionalProperties": false
                                     },
                                     {
                                       "type": "object",
@@ -1609,7 +1669,8 @@
                                       "required": [
                                         "mode",
                                         "asset"
-                                      ]
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   ]
                                 },
@@ -1629,7 +1690,8 @@
                                       "default": 0,
                                       "type": "number"
                                     }
-                                  }
+                                  },
+                                  "additionalProperties": false
                                 },
                                 "transitionOut": {
                                   "default": {
@@ -1646,7 +1708,8 @@
                                       },
                                       "required": [
                                         "kind"
-                                      ]
+                                      ],
+                                      "additionalProperties": false
                                     },
                                     {
                                       "type": "object",
@@ -1664,7 +1727,8 @@
                                       "required": [
                                         "kind",
                                         "durationMs"
-                                      ]
+                                      ],
+                                      "additionalProperties": false
                                     },
                                     {
                                       "type": "object",
@@ -1685,7 +1749,8 @@
                                       "required": [
                                         "kind",
                                         "durationMs"
-                                      ]
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   ]
                                 },
@@ -1700,7 +1765,8 @@
                                 "asset",
                                 "inMs",
                                 "outMs"
-                              ]
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "setStructure": {
@@ -1733,13 +1799,15 @@
                                     "role",
                                     "from",
                                     "to"
-                                  ]
+                                  ],
+                                  "additionalProperties": false
                                 }
                               }
                             },
                             "required": [
                               "framework"
-                            ]
+                            ],
+                            "additionalProperties": false
                           },
                           "setStyle": {
                             "type": "object",
@@ -1754,19 +1822,27 @@
                               "type": "string"
                             }
                           }
-                        }
+                        },
+                        "additionalProperties": false
                       }
                     },
                     "required": [
                       "key",
                       "label",
                       "patch"
-                    ]
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "decision": {
                   "type": "string",
-                  "const": "more"
+                  "enum": [
+                    "A",
+                    "B",
+                    "C",
+                    "reject",
+                    "more"
+                  ]
                 },
                 "note": {
                   "type": "string"
@@ -1775,7 +1851,8 @@
               "required": [
                 "variants",
                 "decision"
-              ]
+              ],
+              "additionalProperties": false
             }
           }
         },
@@ -1783,7 +1860,8 @@
           "id",
           "step",
           "variants"
-        ]
+        ],
+        "additionalProperties": false
       }
     }
   },
@@ -1794,5 +1872,6 @@
     "style",
     "assets",
     "story"
-  ]
+  ],
+  "additionalProperties": false
 }

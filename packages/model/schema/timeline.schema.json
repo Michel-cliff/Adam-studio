@@ -47,7 +47,7 @@
           },
           "durationFrames": {
             "type": "integer",
-            "minimum": 0,
+            "exclusiveMinimum": 0,
             "maximum": 9007199254740991
           },
           "sourceInMs": {
@@ -348,6 +348,11 @@
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
           },
+          "trimStartMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
           "x": {
             "type": "number"
           },
@@ -368,6 +373,7 @@
           "layer",
           "fromFrame",
           "durationFrames",
+          "trimStartMs",
           "x",
           "y",
           "props"

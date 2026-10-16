@@ -10,7 +10,7 @@ export const TimelineClipSchema = z.object({
   id: z.string(),
   asset: z.string(),
   fromFrame: Frame,
-  durationFrames: Frame,
+  durationFrames: Frames,
   sourceInMs: Ms,
   sourceOutMs: Ms,
   framing: FramingSchema,
@@ -25,6 +25,8 @@ export const TimelineElementSchema = z.object({
   layer: z.enum(["front", "behind-subject"]),
   fromFrame: Frame,
   durationFrames: Frames,
+  /** Milliseconds cut off the element's own start when it was clamped at 0; the renderer starts that far in. */
+  trimStartMs: Ms,
   x: z.number(),
   y: z.number(),
   props: z.record(z.string(), z.unknown()),

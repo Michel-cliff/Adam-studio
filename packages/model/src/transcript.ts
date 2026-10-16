@@ -33,6 +33,9 @@ function uniqueId(base: string, ids: Set<string>): string {
   return id;
 }
 
+/** Story pieces shorter than this are absorbed into the cut instead of leaving a sub-frame clip. */
+const MIN_CLIP_MS = 50;
+
 export function cutWords(project: Project, wordIds: string[]): Project {
   let story = project.story;
   const ids = new Set(story.map((c) => c.id));
@@ -43,45 +46,83 @@ export function cutWords(project: Project, wordIds: string[]): Project {
     story = story.flatMap((c): Clip[] => {
       if (c.asset !== first.asset || e <= c.inMs || s >= c.outMs) return [c];
       const parts: Clip[] = [];
-      if (s > c.inMs) parts.push({ ...c, outMs: s, transitionOut: e < c.outMs ? { kind: "cut" } : c.transitionOut });
-      if (e < c.outMs) parts.push({ ...c, id: parts.length ? uniqueId(c.id, ids) : c.id, inMs: e });
+      const keepRight = c.outMs - e >= MIN_CLIP_MS;
+      if (s - c.inMs >= MIN_CLIP_MS) parts.push({ ...c, outMs: s, transitionOut: keepRight ? { kind: "cut" } : c.transitionOut });
+      if (keepRight) parts.push({ ...c, id: parts.length ? uniqueId(c.id, ids) : c.id, inMs: e });
       return parts;
     });
   }
   return { ...project, story };
 }
 
+/** Same asset and same look: two such clips that touch in source time can become one. */
+function sameLook(a: Clip, b: Clip): boolean {
+  return (
+    a.asset === b.asset &&
+    a.volume === b.volume &&
+    JSON.stringify(a.framing) === JSON.stringify(b.framing) &&
+    JSON.stringify(a.zoom) === JSON.stringify(b.zoom)
+  );
+}
+
+/** Parts of [s, e] not covered by any clip of the asset (clips may overlap or touch). */
+function missingRanges(story: Clip[], asset: string, s: number, e: number): [number, number][] {
+  const kept = story
+    .filter((c) => c.asset === asset)
+    .map((c) => [c.inMs, c.outMs] as [number, number])
+    .sort((x, y) => x[0] - y[0]);
+  const missing: [number, number][] = [];
+  let cursor = s;
+  for (const [a, b] of kept) {
+    if (b <= cursor) continue;
+    if (a >= e) break;
+    if (a > cursor) missing.push([cursor, Math.min(a, e)]);
+    cursor = Math.max(cursor, b);
+    if (cursor >= e) break;
+  }
+  if (cursor < e) missing.push([cursor, e]);
+  return missing;
+}
+
+/** Inserts [s, e] right after the clip that precedes it in source time (or before the one that follows). */
+function insertPiece(story: Clip[], asset: string, s: number, e: number, ids: Set<string>): Clip[] {
+  let before = -1;
+  story.forEach((c, k) => {
+    if (c.asset === asset && c.outMs <= s && (before < 0 || c.outMs > story[before]!.outMs)) before = k;
+  });
+  let after = -1;
+  if (before < 0) {
+    story.forEach((c, k) => {
+      if (c.asset === asset && c.inMs >= e && (after < 0 || c.inMs < story[after]!.inMs)) after = k;
+    });
+  }
+  const neighbour = before >= 0 ? story[before]! : story[after]!;
+  const at = before >= 0 ? before + 1 : after;
+  const out = [...story];
+  out.splice(at, 0, { ...neighbour, id: uniqueId(neighbour.id, ids), inMs: s, outMs: e, transitionOut: { kind: "cut" } });
+  const next = out[at + 1];
+  if (next && sameLook(out[at]!, next) && next.inMs === e) {
+    out.splice(at, 2, { ...out[at]!, outMs: next.outMs, transitionOut: next.transitionOut, id: next.id });
+  }
+  const prev = out[at - 1];
+  const cur = out[at]!;
+  if (prev && sameLook(prev, cur) && prev.outMs === cur.inMs) {
+    out.splice(at - 1, 2, { ...prev, outMs: cur.outMs, transitionOut: cur.transitionOut });
+  }
+  return out;
+}
+
 export function restoreWords(project: Project, wordIds: string[]): Project {
-  const story = [...project.story];
+  let story = [...project.story];
   const ids = new Set(story.map((c) => c.id));
   for (const run of runs(refsOf(project, wordIds))) {
     const asset = run[0]!.asset;
-    const s = run[0]!.startMs;
-    const e = run[run.length - 1]!.endMs;
-    if (story.some((c) => c.asset === asset && s >= c.inMs && e <= c.outMs)) continue;
-    let at = -1;
-    story.forEach((c, k) => {
-      if (c.asset === asset && c.outMs <= s) at = k;
-    });
-    let neighbour: Clip | undefined = story[at];
-    let insertAt = at + 1;
-    if (at < 0) {
-      insertAt = story.findIndex((c) => c.asset === asset && c.inMs >= e);
-      if (insertAt < 0) throw new EditError(`cannot restore: asset "${asset}" is not in the story`);
-      neighbour = story[insertAt];
+    if (!story.some((c) => c.asset === asset)) {
+      throw new EditError(`cannot restore: asset "${asset}" is not in the story`);
     }
-    const template = neighbour!;
-    story.splice(insertAt, 0, { ...template, id: uniqueId(template.id, ids), inMs: s, outMs: e, transitionOut: { kind: "cut" } });
-    // Merge with the clips it touches, so a cut followed by a restore gives back the original clip.
-    const i = insertAt;
-    const next = story[i + 1];
-    if (next && next.asset === asset && next.inMs === e) {
-      story.splice(i, 2, { ...story[i]!, outMs: next.outMs, transitionOut: next.transitionOut, id: next.id });
-    }
-    const prev = story[i - 1];
-    if (prev && prev.asset === asset && prev.outMs === s) {
-      const cur = story[i]!;
-      story.splice(i - 1, 2, { ...prev, outMs: cur.outMs, transitionOut: cur.transitionOut });
+    // Only the parts not already kept come back, each next to its source-time neighbour, so nothing plays twice.
+    for (const [s, e] of missingRanges(story, asset, run[0]!.startMs, run[run.length - 1]!.endMs)) {
+      story = insertPiece(story, asset, s, e, ids);
     }
   }
   return { ...project, story };

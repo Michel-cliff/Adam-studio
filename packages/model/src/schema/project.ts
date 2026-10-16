@@ -4,14 +4,14 @@ export const FormatSchema = z.enum(["9:16", "16:9"]);
 const Ms = z.number().int().nonnegative();
 const Unit = z.number().min(0).max(1);
 
-export const CanvasSchema = z.object({ format: FormatSchema, fps: z.number().int().positive() });
+export const CanvasSchema = z.strictObject({ format: FormatSchema, fps: z.number().int().positive() });
 
-export const AssetSchema = z.object({
+export const AssetSchema = z.strictObject({
   id: z.string().min(1),
   kind: z.enum(["video", "audio", "image", "lottie"]),
   path: z.string().min(1),
   meta: z
-    .object({
+    .strictObject({
       durationMs: Ms.optional(),
       width: z.number().int().positive().optional(),
       height: z.number().int().positive().optional(),
@@ -21,37 +21,37 @@ export const AssetSchema = z.object({
 });
 
 export const WordSchema = z
-  .object({ id: z.string().min(1), text: z.string(), startMs: Ms, endMs: Ms })
+  .strictObject({ id: z.string().min(1), text: z.string(), startMs: Ms, endMs: Ms })
   .refine((w) => w.endMs >= w.startMs, { message: "endMs must be >= startMs", path: ["endMs"] });
 
-export const TranscriptSchema = z.object({
+export const TranscriptSchema = z.strictObject({
   lang: z.string().default("fr"),
   words: z.record(z.string(), z.array(WordSchema)).default({}),
 });
 
-const RectSchema = z.object({ x: Unit, y: Unit, w: z.number().gt(0).max(1), h: z.number().gt(0).max(1) });
+const RectSchema = z.strictObject({ x: Unit, y: Unit, w: z.number().gt(0).max(1), h: z.number().gt(0).max(1) });
 
 export const FramingSchema = z.discriminatedUnion("mode", [
-  z.object({ mode: z.literal("cover") }),
-  z.object({ mode: z.literal("fit"), background: z.enum(["blur", "color"]).default("blur"), color: z.string().optional() }),
-  z.object({
+  z.strictObject({ mode: z.literal("cover") }),
+  z.strictObject({ mode: z.literal("fit"), background: z.enum(["blur", "color"]).default("blur"), color: z.string().optional() }),
+  z.strictObject({
     mode: z.literal("crop"),
     rect: RectSchema,
-    keyframes: z.array(z.object({ atMs: Ms, rect: RectSchema })).default([]),
+    keyframes: z.array(z.strictObject({ atMs: Ms, rect: RectSchema })).default([]),
   }),
-  z.object({ mode: z.literal("split"), asset: z.string().min(1), layout: z.string().default("top-bottom") }),
+  z.strictObject({ mode: z.literal("split"), asset: z.string().min(1), layout: z.string().default("top-bottom") }),
 ]);
 
-export const ZoomSchema = z.object({ base: z.number().positive().default(1), driftPerSec: z.number().default(0) });
+export const ZoomSchema = z.strictObject({ base: z.number().positive().default(1), driftPerSec: z.number().default(0) });
 
 export const TransitionOutSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("cut") }),
-  z.object({ kind: z.literal("crossfade"), durationMs: Ms }),
-  z.object({ kind: z.literal("subjectSlide"), durationMs: Ms, word: z.string().optional() }),
+  z.strictObject({ kind: z.literal("cut") }),
+  z.strictObject({ kind: z.literal("crossfade"), durationMs: Ms }),
+  z.strictObject({ kind: z.literal("subjectSlide"), durationMs: Ms, word: z.string().optional() }),
 ]);
 
 export const ClipSchema = z
-  .object({
+  .strictObject({
     id: z.string().min(1),
     asset: z.string().min(1),
     inMs: Ms,
@@ -64,12 +64,12 @@ export const ClipSchema = z
   .refine((c) => c.outMs > c.inMs, { message: "outMs must be greater than inMs", path: ["outMs"] });
 
 export const AnchorSchema = z.union([
-  z.object({ word: z.string().min(1), offsetMs: z.number().int().default(0) }),
-  z.object({ atMs: Ms }),
+  z.strictObject({ word: z.string().min(1), offsetMs: z.number().int().default(0) }),
+  z.strictObject({ atMs: Ms }),
 ]);
 
 export const ElementSchema = z
-  .object({
+  .strictObject({
     id: z.string().min(1),
     kind: z.string().min(1),
     layer: z.enum(["front", "behind-subject"]).default("front"),
@@ -78,7 +78,7 @@ export const ElementSchema = z
     untilWord: z.string().min(1).optional(),
     untilEnd: z.boolean().optional(),
     slot: z.string().default("center"),
-    position: z.object({ x: Unit, y: Unit }).optional(),
+    position: z.strictObject({ x: Unit, y: Unit }).optional(),
     props: z.record(z.string(), z.unknown()).default({}),
   })
   .refine(
@@ -86,22 +86,22 @@ export const ElementSchema = z
     { message: "set exactly one of durationMs, untilWord, untilEnd", path: ["durationMs"] },
   );
 
-export const CaptionSchema = z.object({
+export const CaptionSchema = z.strictObject({
   words: z.tuple([z.string().min(1), z.string().min(1)]),
   text: z.string().min(1),
   highlight: z.array(z.string().min(1)).default([]),
   lang: z.string().optional(),
 });
 
-export const BeatSchema = z.object({ role: z.string().min(1), from: z.string().min(1), to: z.string().min(1) });
-export const StructureSchema = z.object({ framework: z.string().min(1), beats: z.array(BeatSchema).default([]) });
+export const BeatSchema = z.strictObject({ role: z.string().min(1), from: z.string().min(1), to: z.string().min(1) });
+export const StructureSchema = z.strictObject({ framework: z.string().min(1), beats: z.array(BeatSchema).default([]) });
 
 export const STEP_IDS = ["cuts", "structure", "captions", "hook", "beats", "visuals", "sound", "look"] as const;
 export const StepIdSchema = z.enum(STEP_IDS);
 export const StepStateSchema = z.enum(["locked", "open", "done"]);
-export const WorkflowSchema = z.object({ current: StepIdSchema, steps: z.record(StepIdSchema, StepStateSchema) });
+export const WorkflowSchema = z.strictObject({ current: StepIdSchema, steps: z.record(StepIdSchema, StepStateSchema) });
 
-export const PatchSchema = z.object({
+export const PatchSchema = z.strictObject({
   addElements: z.array(ElementSchema).optional(),
   addCaptions: z.array(CaptionSchema).optional(),
   setStory: z.array(ClipSchema).min(1).optional(),
@@ -111,13 +111,13 @@ export const PatchSchema = z.object({
 });
 
 export const VariantKeySchema = z.enum(["A", "B", "C"]);
-export const VariantSchema = z.object({ key: VariantKeySchema, label: z.string().min(1), patch: PatchSchema });
+export const VariantSchema = z.strictObject({ key: VariantKeySchema, label: z.string().min(1), patch: PatchSchema });
 export const ProposalStatusSchema = z.union([
   z.literal("pending"),
   z.literal("rejected"),
-  z.object({ accepted: VariantKeySchema }),
+  z.strictObject({ accepted: VariantKeySchema }),
 ]);
-export const ProposalSchema = z.object({
+export const ProposalSchema = z.strictObject({
   id: z.string().min(1),
   step: StepIdSchema,
   anchor: AnchorSchema.optional(),
@@ -125,11 +125,15 @@ export const ProposalSchema = z.object({
   variants: z.array(VariantSchema).max(3),
   status: ProposalStatusSchema.default("pending"),
   history: z
-    .array(z.object({ variants: z.array(VariantSchema), decision: z.literal("more"), note: z.string().optional() }))
+    .array(z.strictObject({
+        variants: z.array(VariantSchema),
+        decision: z.enum(["A", "B", "C", "reject", "more"]),
+        note: z.string().optional(),
+      }))
     .default([]),
 });
 
-export const ProjectSchema = z.object({
+export const ProjectSchema = z.strictObject({
   version: z.literal(1),
   name: z.string().min(1),
   canvas: CanvasSchema,

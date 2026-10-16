@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "asset": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fit": {
+      "default": "full",
+      "type": "string",
+      "enum": [
+        "full",
+        "contain",
+        "cover"
+      ]
+    },
+    "intro": {
+      "type": "string"
+    },
+    "outro": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "asset"
+  ],
+  "additionalProperties": false
+}

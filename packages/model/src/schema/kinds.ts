@@ -2,16 +2,16 @@ import { z } from "zod";
 
 const Ms = z.number().int().nonnegative();
 
-export const TitlePropsSchema = z.object({
+export const TitlePropsSchema = z.strictObject({
   kicker: z.string().optional(),
   phases: z
     .array(
       z
-        .object({
+        .strictObject({
           startMs: Ms,
           endMs: Ms,
           lines: z
-            .array(z.object({ text: z.string().min(1), box: z.boolean().default(false), sizeScale: z.number().positive().default(1) }))
+            .array(z.strictObject({ text: z.string().min(1), box: z.boolean().default(false), sizeScale: z.number().positive().default(1) }))
             .min(1),
         })
         .refine((p) => p.endMs > p.startMs, { message: "endMs must be greater than startMs", path: ["endMs"] }),
@@ -19,20 +19,20 @@ export const TitlePropsSchema = z.object({
     .min(1),
 });
 
-export const BehindSubjectTextPropsSchema = z.object({
+export const BehindSubjectTextPropsSchema = z.strictObject({
   text: z.string().min(1),
   color: z.string().default("accent"),
   sizeScale: z.number().positive().default(1),
 });
 
-export const ImagePropsSchema = z.object({
+export const ImagePropsSchema = z.strictObject({
   asset: z.string().min(1),
   fit: z.enum(["full", "contain", "cover"]).default("full"),
   intro: z.string().optional(),
   outro: z.string().optional(),
 });
 
-export const SfxPropsSchema = z.object({
+export const SfxPropsSchema = z.strictObject({
   asset: z.string().min(1),
   volume: z.number().min(0).default(1),
   fadeInMs: Ms.default(0),

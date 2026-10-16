@@ -21,6 +21,8 @@ export function resolveElements(ctx: ResolveContext): { elements: TimelineElemen
       ctx.orphans.push(el.id);
       continue;
     }
+    // Clamped at the start: the cut-off part is skipped, so what remains stays in sync with the speech.
+    const trimStartMs = Math.max(0, -start);
     const fromFrame = ctx.frame(Math.max(0, start));
     const toFrame = ctx.frame(Math.min(ctx.totalMs, end));
     if (toFrame - fromFrame < 1) {
@@ -34,7 +36,7 @@ export function resolveElements(ctx: ResolveContext): { elements: TimelineElemen
         asset: p.asset,
         fromFrame,
         durationFrames: toFrame - fromFrame,
-        sourceInMs: 0,
+        sourceInMs: trimStartMs,
         volume: p.volume,
         fadeInMs: p.fadeInMs,
         fadeOutMs: p.fadeOutMs,
@@ -42,7 +44,7 @@ export function resolveElements(ctx: ResolveContext): { elements: TimelineElemen
       continue;
     }
     const { x, y } = ctx.place(el.slot, el.position);
-    elements.push({ id: el.id, kind: el.kind, layer: el.layer, fromFrame, durationFrames: toFrame - fromFrame, x, y, props: el.props });
+    elements.push({ id: el.id, kind: el.kind, layer: el.layer, fromFrame, durationFrames: toFrame - fromFrame, trimStartMs, x, y, props: el.props });
   }
   return { elements, sfx };
 }
@@ -51,6 +53,7 @@ export function resolveClipAudio(ctx: ResolveContext): TimelineAudio[] {
   const assets = new Map(ctx.project.assets.map((a) => [a.id, a]));
   return ctx.clips
     .filter((l) => {
+      if (ctx.frame(l.outEndMs) - ctx.frame(l.outStartMs) < 1) return false;
       const a = assets.get(l.clip.asset);
       return a !== undefined && (a.kind === "audio" || (a.kind === "video" && a.meta.hasAudio !== false));
     })

@@ -27,7 +27,8 @@
           "required": [
             "family",
             "file"
-          ]
+          ],
+          "additionalProperties": false
         },
         "title": {
           "type": "object",
@@ -47,13 +48,15 @@
           "required": [
             "family",
             "file"
-          ]
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
         "caption",
         "title"
-      ]
+      ],
+      "additionalProperties": false
     },
     "colors": {
       "type": "object",
@@ -80,7 +83,8 @@
         "highlight",
         "accent",
         "ink"
-      ]
+      ],
+      "additionalProperties": false
     },
     "grade": {
       "default": {
@@ -122,7 +126,8 @@
           "minimum": 0,
           "maximum": 1
         }
-      }
+      },
+      "additionalProperties": false
     },
     "caption": {
       "type": "object",
@@ -153,7 +158,8 @@
       },
       "required": [
         "size"
-      ]
+      ],
+      "additionalProperties": false
     },
     "slots": {
       "type": "object",
@@ -186,7 +192,8 @@
           "required": [
             "x",
             "y"
-          ]
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -240,7 +247,8 @@
         "required": [
           "minDurationMs",
           "maxDurationMs"
-        ]
+        ],
+        "additionalProperties": false
       },
       "required": [
         "9:16",
@@ -255,5 +263,6 @@
     "caption",
     "slots",
     "lint"
-  ]
+  ],
+  "additionalProperties": false
 }

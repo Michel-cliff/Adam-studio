@@ -29,7 +29,12 @@ export function resolve(projectIn: Project, styleIn: Style, options: ResolveOpti
   const style = mergeStyle(styleIn, project.styleOverrides);
   const ctx = createContext(project, style);
   const { width, height } = canvasSize(project.canvas.format);
-  const clips = ctx.clips.map((l) => ({
+  const clips = ctx.clips.flatMap((l) => {
+    if (ctx.frame(l.outEndMs) - ctx.frame(l.outStartMs) < 1) {
+      ctx.warnings.push(`clip "${l.clip.id}" is shorter than one frame and was dropped`);
+      return [];
+    }
+    return [{
     id: l.clip.id,
     asset: l.clip.asset,
     fromFrame: ctx.frame(l.outStartMs),
@@ -40,7 +45,8 @@ export function resolve(projectIn: Project, styleIn: Style, options: ResolveOpti
     zoom: l.clip.zoom,
     transitionOut: l.clip.transitionOut,
     volume: l.clip.volume,
-  }));
+  }];
+  });
   const { elements, sfx } = resolveElements(ctx);
   const captions = resolveCaptions(ctx);
   const beats = resolveBeats(ctx);
