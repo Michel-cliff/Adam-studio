@@ -6,6 +6,7 @@
   "engines": { "node": ">=24" },
   "scripts": {
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "adam": "tsx packages/render/src/cli.ts"
   }
 }
