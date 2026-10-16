@@ -79,3 +79,8 @@ _FORBIDDEN = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 def safe_name(name: str) -> str:
     """The renderer's fileSafeName: characters Windows forbids become "-" (a ":" would write an NTFS stream)."""
     return _FORBIDDEN.sub("-", name).rstrip(". ").strip() or "edit"
+
+
+def warmth_filter(warmth: float) -> str:
+    """The renderer's warmth color matrix as an ffmpeg filter (red up, green slightly, blue down)."""
+    return f"colorchannelmixer=rr={round(1 + 0.12 * warmth, 4)}:gg={round(1 + 0.02 * warmth, 4)}:bb={round(1 - 0.14 * warmth, 4)}"

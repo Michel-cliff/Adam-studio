@@ -96,7 +96,7 @@ def plan_dict(src: Path, font: str) -> dict:
 def center_pixel(video: Path) -> tuple[int, int, int]:
     """RGB of the center pixel of a video's first frame."""
     raw = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", "crop=1:1:540:960", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", "format=rgb24,crop=1:1:540:960", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
         capture_output=True, check=True,
     ).stdout
     return raw[0], raw[1], raw[2]

@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from .errors import ExportError
+from .units import warmth_filter
 
 
 def probe(path: Path) -> tuple[float, int, int]:
@@ -19,6 +20,15 @@ def probe(path: Path) -> tuple[float, int, int]:
     return float(duration) if duration not in (None, "N/A") else 0.0, int(stream.get("width", 0)), int(stream.get("height", 0))
 
 
+def warm_copy(src: Path, dst: Path, warmth: float, fps: int) -> None:
+    """Re-encodes a take with the renderer's warmth matrix, keeping the GOP rule, so CapCut matches the MP4."""
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-i", str(src), "-vf", warmth_filter(warmth), "-c:v", "libx264", "-crf", "16",
+         "-preset", "medium", "-g", str(fps), "-bf", "0", "-pix_fmt", "yuv420p", "-c:a", "copy", str(dst)],
+        check=True,
+    )
+
+
 def copy_media(timeline: dict, plan: dict, prep: Path, media_dir: Path) -> dict:
     sources = plan["sources"]
     out: dict = {"videos": {}, "files": {}, "bakes": {}, "overlays": {}}
@@ -30,11 +40,17 @@ def copy_media(timeline: dict, plan: dict, prep: Path, media_dir: Path) -> dict:
         shutil.copy2(src, dst)
         return dst
 
+    warmth = timeline["style"]["grade"]["warmth"]
     for i, asset in enumerate(sorted({c["asset"] for c in timeline["clips"]}), 1):
         video = sources.get(asset, {}).get("video")
-        if not video:
+        if not video or not Path(video).is_file():
             raise ExportError(f'no video file for asset "{asset}" in the prepared plan')
-        dst = copy(Path(video), f"v{i:02d}")
+        if warmth:
+            # CapCut has no warmth keyframe: the take itself is warmed (baked stretches are warmed by Remotion).
+            dst = media_dir / f"v{i:02d}.mp4"
+            warm_copy(Path(video), dst, warmth, timeline["fps"])
+        else:
+            dst = copy(Path(video), f"v{i:02d}")
         out["videos"][asset] = (dst, probe(dst))
     wanted = [e["props"]["asset"] for e in timeline["elements"] if e["kind"] == "image" and e["layer"] == "front"]
     wanted += [a["asset"] for a in timeline["audio"] if not a["id"].startswith("clip:")]

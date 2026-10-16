@@ -1,0 +1,66 @@
+import json
+
+import pytest
+
+from adam_capcut.export import export
+from helpers import FONT_ID, TITLE_FONT_ID, center_pixel, content_of, report_of
+
+
+def texts_by_string(content):
+    return {json.loads(t["content"])["text"]: t for t in content["materials"]["texts"]}
+
+
+def test_captions_are_native_text_with_the_caption_font_and_highlight(lab, project, tmp_path):
+    _, profiles = lab
+    texts = texts_by_string(content_of(export(project, name="captions", projects_root=tmp_path, prepare=False), profiles))
+    cap = texts["créé\nma boîte"]
+    assert cap["font_resource_id"] == FONT_ID
+    styles = json.loads(cap["content"])["styles"]
+    # "boîte" highlighted: the accents do not shift the range.
+    assert [st["range"] for st in styles] == [[0, 8], [8, 13]]
+    assert styles[1]["fill"]["content"]["solid"]["color"] == pytest.approx([1.0, 209 / 255, 0.0])
+    assert report_of(project, "captions")["cap1"]["status"] == "native"
+
+
+def test_titles_are_editable_texts_with_the_title_font(lab, project, tmp_path):
+    _, profiles = lab
+    texts = texts_by_string(content_of(export(project, name="titles", projects_root=tmp_path, prepare=False), profiles))
+    assert {"EPISODE 3", "QUI VEUT", "M'EMBAUCHER ?", "PERSONNE", "WOW"} <= set(texts)
+    assert {texts[k]["font_resource_id"] for k in ("EPISODE 3", "QUI VEUT", "PERSONNE", "WOW")} == {TITLE_FONT_ID}
+    assert texts["M'EMBAUCHER ?"]["background_color"] == "#FF6B35"
+    r = report_of(project, "titles")
+    assert (r["t1"]["status"], r["big"]["status"]) == ("native", "native")
+
+
+def test_front_images_are_sized_photos_and_overlays_are_videos_on_front_tracks(lab, project, tmp_path):
+    _, profiles = lab
+    content = content_of(export(project, name="front", projects_root=tmp_path, prepare=False), profiles)
+    photos = [m for m in content["materials"]["videos"] if m["type"] == "photo"]
+    assert [(m["width"], m["height"]) for m in photos] == [(1080, 1920)]
+    front = [t for t in content["tracks"] if t["name"].startswith("front")]
+    assert [len(t["segments"]) for t in front] == [2]
+    r = report_of(project, "front")
+    assert r["pic"]["status"] == "native" and "RGB Scanlines" in r["pic"]["reason"]
+    assert r["hud1"]["status"] == "baked"
+
+
+def test_sound_effects_keep_volume_and_fades(lab, project, tmp_path):
+    _, profiles = lab
+    content = content_of(export(project, name="sounds", projects_root=tmp_path, prepare=False), profiles)
+    audio = [t for t in content["tracks"] if t["type"] == "audio"]
+    assert [len(t["segments"]) for t in audio] == [1]
+    assert audio[0]["segments"][0]["volume"] == 0.5
+    assert [(f["fade_in_duration"], f["fade_out_duration"]) for f in content["materials"]["audio_fades"]] == [(50000, 100000)]
+    assert report_of(project, "sounds")["beep"]["status"] == "native"
+
+
+def test_vignette_is_native_and_warmth_is_applied_to_the_copied_takes(lab, project, tmp_path):
+    _, profiles = lab
+    dest = export(project, name="look", projects_root=tmp_path, prepare=False)
+    assert [e["name"] for e in content_of(dest, profiles)["materials"]["video_effects"]] == ["Vignette"]
+    r0, _, b0 = center_pixel(project / "media-src" / "edit.mp4")
+    r1, _, b1 = center_pixel(dest / "media" / "v01.mp4")
+    assert abs(r0 - b0) <= 3, "the source take is neutral gray"
+    assert r1 - b1 >= 8, "the copied take is warmer"
+    r = report_of(project, "look")
+    assert (r["grade"]["status"], r["grade.vignette"]["status"], r["grade.warmth"]["status"]) == ("native", "native", "baked")

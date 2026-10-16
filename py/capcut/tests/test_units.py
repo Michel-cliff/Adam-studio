@@ -1,7 +1,7 @@
 import pytest
 
 from adam_capcut.units import (
-    cover_scale, crop_rect_at, crop_transform, frame_us, hex_rgb, image_scale, ms_us, place, safe_name, span_us, zoom_at,
+    cover_scale, crop_rect_at, crop_transform, frame_us, hex_rgb, image_scale, ms_us, place, safe_name, span_us, warmth_filter, zoom_at,
 )
 
 PORTRAIT = (1080, 1920)
@@ -56,3 +56,7 @@ def test_safe_name_matches_the_renderer():
     assert safe_name(r'a/b\c*d?e"f<g>h|i') == "a-b-c-d-e-f-g-h-i"
     assert safe_name("...") == "edit"
     assert safe_name("final. ") == "final"
+
+
+def test_warmth_filter_is_the_renderer_color_matrix():
+    assert warmth_filter(0.35) == "colorchannelmixer=rr=1.042:gg=1.007:bb=0.951"

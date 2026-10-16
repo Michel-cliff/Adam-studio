@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .build import build_script
 from .errors import ExportError
+from .fonts import apply_fonts
 from .folder import MARKER, default_projects_root, prepare_project_dir
 from .lab import lab_path, load_lab
 from .media import copy_media
@@ -40,8 +41,8 @@ def export(project_dir, *, name: str | None = None, projects_root=None, prepare:
     root = Path(projects_root) if projects_root else default_projects_root()
     dest = prepare_project_dir(root, folder, lab_path() / profile.template_dir)
     media = copy_media(timeline, plan, prep, dest / "media")
-    script, entries = build_script(pjd, timeline, plan, media)
-    profiles.write_profile_content(profile, dest, script.dumps(profile))
+    script, entries, roles = build_script(pjd, timeline, plan, media)
+    profiles.write_profile_content(profile, dest, apply_fonts(script.dumps(profile), plan["fonts"], roles))
     (dest / MARKER).touch()
     report = project_dir / "renders" / f"{folder}.capcut-report.json"
     report.parent.mkdir(parents=True, exist_ok=True)
