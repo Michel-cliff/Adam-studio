@@ -1,13 +1,19 @@
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { decideCommand } from "./commands/decide";
 import { renderCommand } from "./commands/render";
+import { reviewCommand } from "./commands/review";
+import { studioCommand } from "./commands/studio";
 import { CliError } from "./project-io";
 
 // `npm run adam` runs from the repo root; relative paths are meant from where the command was typed.
 const base = process.env.INIT_CWD ?? process.cwd();
 
 const USAGE = `usage: npm run adam -- <command> <projectDir> [options]
-  render <dir> [--out file.mp4] [--frames a-b] [--force]`;
+  render <dir> [--out file.mp4] [--frames a-b] [--force]
+  review <dir> [--step <step>]
+  decide <dir> <proposalId> <A|B|C|reject|more> [--note "..."]
+  studio <dir>`;
 
 async function main(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -21,12 +27,24 @@ async function main(argv: string[]): Promise<void> {
       note: { type: "string" },
     },
   });
-  const [cmd, dirArg] = positionals;
+  const [cmd, dirArg, ...rest] = positionals;
   if (!cmd || !dirArg) throw new CliError(USAGE);
   const dir = resolve(base, dirArg);
   switch (cmd) {
     case "render":
       await renderCommand(dir, { out: values.out ? resolve(base, values.out) : undefined, frames: values.frames, force: values.force ?? false });
+      return;
+    case "review":
+      await reviewCommand(dir, { step: values.step });
+      return;
+    case "decide": {
+      const [id, decision] = rest;
+      if (!id || !decision) throw new CliError(USAGE);
+      decideCommand(dir, id, decision, values.note);
+      return;
+    }
+    case "studio":
+      studioCommand(dir);
       return;
     default:
       throw new CliError(USAGE);
