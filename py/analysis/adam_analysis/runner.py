@@ -8,6 +8,7 @@ from . import manifest
 from .errors import AnalysisError
 from .probe import probe
 from .steps import edit as edit_step
+from .steps import matting as matting_step
 from .steps import silences as silences_step
 from .steps import transcript as transcript_step
 
@@ -45,9 +46,23 @@ def _silences(cache: Path, source: Path, ctx: Ctx) -> None:
     tmp.replace(cache / "silences.json")
 
 
-STEP_FUNCS: dict[str, Callable[[Path, Path, Ctx], None]] = {"edit": _edit, "proxy": _proxy, "transcript": _transcript, "silences": _silences}
+
+def _subject(cache: Path, source: Path, ctx: Ctx) -> None:
+    tmp = cache / "tmp-subject.webm"
+    matting_step.make_subject(cache / "edit.mp4", tmp, ctx["fps"])
+    tmp.replace(cache / "subject.webm")
+
+
+def _plate(cache: Path, source: Path, ctx: Ctx) -> None:
+    tmp = cache / "tmp-plate.png"
+    matting_step.make_plate(cache / "edit.mp4", tmp)
+    tmp.replace(cache / "plate.png")
+
+
+STEP_FUNCS: dict[str, Callable[[Path, Path, Ctx], None]] = {"edit": _edit, "proxy": _proxy, "transcript": _transcript, "silences": _silences,
+                                                              "subject": _subject, "plate": _plate}
 manifest.VERSIONS.update({"edit": edit_step.VERSION, "proxy": edit_step.VERSION, "transcript": transcript_step.VERSION,
-                          "silences": silences_step.VERSION})
+                          "silences": silences_step.VERSION, "subject": matting_step.VERSION, "plate": matting_step.VERSION})
 
 
 def with_dependencies(steps: list[str]) -> list[str]:
