@@ -1,7 +1,17 @@
 import type { ZodError, ZodType } from "zod";
-import { ProjectSchema, type Element, type Project } from "./schema/project";
+import {
+  ProjectSchema,
+  type Anchor,
+  type Asset,
+  type Caption,
+  type Clip,
+  type Element,
+  type Project,
+  type Variant,
+} from "./schema/project";
 import { StyleSchema, type Style } from "./schema/style";
-import { KIND_SCHEMAS, isKind } from "./schema/kinds";
+import { ASSET_PROP_KINDS, KIND_SCHEMAS, isKind } from "./schema/kinds";
+import { indexWords, type WordRef } from "./words";
 
 export interface FieldError {
   path: string;
@@ -49,28 +59,105 @@ export function checkElementProps(el: Element, path: string, errors: FieldError[
   return { ...el, props: r.data as Record<string, unknown> };
 }
 
+interface Ctx {
+  assets: Map<string, Asset>;
+  words: Map<string, WordRef>;
+  errors: FieldError[];
+}
+
+function duplicates(ids: string[], path: string, errors: FieldError[]): void {
+  const seen = new Set<string>();
+  ids.forEach((id, i) => {
+    if (seen.has(id)) errors.push({ path: `${path}[${i}].id`, message: `duplicate id "${id}"` });
+    seen.add(id);
+  });
+}
+
+function checkWord(id: string, path: string, ctx: Ctx): void {
+  if (!ctx.words.has(id)) ctx.errors.push({ path, message: `unknown word "${id}"` });
+}
+
+function checkAnchor(anchor: Anchor, path: string, ctx: Ctx): void {
+  if ("word" in anchor) checkWord(anchor.word, `${path}.word`, ctx);
+}
+
+function checkClip(c: Clip, path: string, ctx: Ctx): void {
+  if (!ctx.assets.has(c.asset)) ctx.errors.push({ path: `${path}.asset`, message: `unknown asset "${c.asset}"` });
+  if (c.framing.mode === "split" && !ctx.assets.has(c.framing.asset)) {
+    ctx.errors.push({ path: `${path}.framing.asset`, message: `unknown asset "${c.framing.asset}"` });
+  }
+}
+
+function checkElement(el: Element, path: string, ctx: Ctx): Element {
+  const parsed = checkElementProps(el, path, ctx.errors);
+  checkAnchor(parsed.anchor, `${path}.anchor`, ctx);
+  if (parsed.untilWord !== undefined) checkWord(parsed.untilWord, `${path}.untilWord`, ctx);
+  if (ASSET_PROP_KINDS.has(parsed.kind)) {
+    const asset = (parsed.props as { asset?: unknown }).asset;
+    if (typeof asset === "string" && !ctx.assets.has(asset)) {
+      ctx.errors.push({ path: `${path}.props.asset`, message: `unknown asset "${asset}"` });
+    }
+  }
+  return parsed;
+}
+
+function checkCaption(c: Caption, path: string, ctx: Ctx): void {
+  checkWord(c.words[0], `${path}.words[0]`, ctx);
+  checkWord(c.words[1], `${path}.words[1]`, ctx);
+  const first = ctx.words.get(c.words[0]);
+  const last = ctx.words.get(c.words[1]);
+  if (!first || !last) return;
+  if (first.asset !== last.asset) {
+    ctx.errors.push({ path: `${path}.words`, message: "a caption's first and last words must come from the same asset" });
+  } else if (last.index < first.index) {
+    ctx.errors.push({ path: `${path}.words`, message: "the last word comes before the first word" });
+  }
+}
+
+function checkVariant(v: Variant, path: string, ctx: Ctx): Variant {
+  const patch = { ...v.patch };
+  if (patch.addElements) {
+    patch.addElements = patch.addElements.map((el, k) => checkElement(el, `${path}.addElements[${k}]`, ctx));
+  }
+  patch.addCaptions?.forEach((c, k) => checkCaption(c, `${path}.addCaptions[${k}]`, ctx));
+  patch.setStory?.forEach((c, k) => checkClip(c, `${path}.setStory[${k}]`, ctx));
+  patch.setStructure?.beats.forEach((b, k) => {
+    checkWord(b.from, `${path}.setStructure.beats[${k}].from`, ctx);
+    checkWord(b.to, `${path}.setStructure.beats[${k}].to`, ctx);
+  });
+  return { ...v, patch };
+}
+
 export function parseProject(input: unknown): ParseResult<Project> {
   const r = ProjectSchema.safeParse(input);
   if (!r.success) return { ok: false, errors: toErrors(r.error) };
   const project = r.data;
   const errors: FieldError[] = [];
-  const elements = project.elements.map((el, i) => checkElementProps(el, `elements[${i}]`, errors));
-  const proposals = project.proposals.map((p, i) => ({
-    ...p,
-    variants: p.variants.map((v, j) =>
-      v.patch.addElements
-        ? {
-            ...v,
-            patch: {
-              ...v.patch,
-              addElements: v.patch.addElements.map((el, k) =>
-                checkElementProps(el, `proposals[${i}].variants[${j}].patch.addElements[${k}]`, errors),
-              ),
-            },
-          }
-        : v,
-    ),
-  }));
+  const ctx: Ctx = { assets: new Map(project.assets.map((a) => [a.id, a])), words: indexWords(project), errors };
+
+  duplicates(project.assets.map((a) => a.id), "assets", errors);
+  duplicates(project.story.map((c) => c.id), "story", errors);
+  duplicates(project.elements.map((e) => e.id), "elements", errors);
+  duplicates(project.proposals.map((p) => p.id), "proposals", errors);
+
+  for (const asset of Object.keys(project.transcript.words)) {
+    if (!ctx.assets.has(asset)) errors.push({ path: `transcript.words.${asset}`, message: `unknown asset "${asset}"` });
+  }
+  const wordCount = Object.values(project.transcript.words).reduce((n, list) => n + list.length, 0);
+  if (wordCount !== ctx.words.size) errors.push({ path: "transcript.words", message: "word ids must be unique across assets" });
+
+  project.story.forEach((c, i) => checkClip(c, `story[${i}]`, ctx));
+  const elements = project.elements.map((el, i) => checkElement(el, `elements[${i}]`, ctx));
+  project.captions.forEach((c, i) => checkCaption(c, `captions[${i}]`, ctx));
+  project.structure?.beats.forEach((b, i) => {
+    checkWord(b.from, `structure.beats[${i}].from`, ctx);
+    checkWord(b.to, `structure.beats[${i}].to`, ctx);
+  });
+  const proposals = project.proposals.map((p, i) => {
+    if (p.anchor) checkAnchor(p.anchor, `proposals[${i}].anchor`, ctx);
+    return { ...p, variants: p.variants.map((v, j) => checkVariant(v, `proposals[${i}].variants[${j}].patch`, ctx)) };
+  });
+
   if (errors.length) return { ok: false, errors };
   return { ok: true, value: { ...project, elements, proposals } };
 }
