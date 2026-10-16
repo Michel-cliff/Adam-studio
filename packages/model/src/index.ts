@@ -10,3 +10,5 @@ export * from "./schema/timeline";
 export * from "./merge";
 export { anchorMs, createContext, mergeStyle, type ResolveContext } from "./context";
 export * from "./resolve";
+export * from "./text";
+export * from "./captions";

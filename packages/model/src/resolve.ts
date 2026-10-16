@@ -1,7 +1,8 @@
 import { canvasSize } from "./time";
 import type { Project } from "./schema/project";
 import type { Style } from "./schema/style";
-import type { Timeline, TimelineBeat, TimelineCaption } from "./schema/timeline";
+import type { Timeline } from "./schema/timeline";
+import { resolveBeats, resolveCaptions } from "./captions";
 import { createContext, mergeStyle } from "./context";
 import { resolveClipAudio, resolveElements } from "./elements";
 
@@ -25,8 +26,8 @@ export function resolve(projectIn: Project, styleIn: Style): Timeline {
     volume: l.clip.volume,
   }));
   const { elements, sfx } = resolveElements(ctx);
-  const captions: TimelineCaption[] = [];
-  const beats: TimelineBeat[] = [];
+  const captions = resolveCaptions(ctx);
+  const beats = resolveBeats(ctx);
   return {
     format: project.canvas.format,
     width,
