@@ -19,7 +19,7 @@
 - Components import `@adam-studio/model` types with `import type`; runtime imports from the model are limited to pure helpers (`msToFrame`).
 - A person-only slide splits the clip's `transitionOut.durationMs` into 40% slide-out at the end of the clip and 60% slide-in at the start of the next clip; slide distance is 1.1 x canvas width.
 - Crop keyframe `atMs` is source (asset) time, consistent with `cutWords` copying keyframes to both pieces; the crop rect is normalized to the source frame (source size from the asset's `meta.width`/`meta.height`, canvas shape assumed when unknown).
-- A crossfade keeps the story magnetic: the incoming clip's lead-in (its source just before the in point) fades in over the last frames of the outgoing clip; audio stays cut at the boundary.
+- `crossfade` transitions render as a cut: crossfades are done by hand (decision of 2026-10-16).
 - `adam studio` previews from `cache/<id>/proxy.mp4` when present; `adam render` and `adam review` always read `edit.mp4`.
 - Unit tests: `npm test -w @adam-studio/render` (fast, no browser). End-to-end: `npm run test:e2e -w @adam-studio/render` (bundles and renders; minutes).
 - Docs and messages use no em dash characters. Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
@@ -27,7 +27,7 @@
 ## Review Focus
 
 - A project folder whose path contains spaces (Windows `User Data`, `C:\Users\...\My Projects`): every file path goes through spawn argument arrays or `staticFile` names without spaces (Task 6 end-to-end fixture lives in a temp dir with a space in its name).
-- A 16:9 screen recording cropped in a 9:16 project: the crop rect is read in the source frame, not in the canvas-shaped center of it (Task 1 `cropBox` landscape test; Task 5 passes the source size from the asset's `meta`).
+- A 16:9 screen recording cropped in a 9:16 project: the crop rect is read in the source frame, not in the canvas-shaped center of it (Task 1 `cropBox` landscape test; Task 5 passes the source size from the asset's `meta`; Task 6 crop still).
 - Missing `subject.webm` or `plate.png` when a behind-subject element or a slide needs it: `MediaError` names the file and the analysis step, before any bundling (Task 5 test).
 - Accented and punctuated text (`é`, `'`, `:`) in captions and in review labels: rendered, and labels sanitized for ffmpeg `drawtext` (Task 8 `sheetLabel` test).
 - A cuts-step proposal whose variants change timing: each variant's review window is computed from its own applied project (Task 8 `reviewWindow` test).
@@ -377,16 +377,16 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ---
 
-### Task 3: Subject windows, person-only slides and crossfades
+### Task 3: Subject windows and person-only slides
 
 **Files:**
-- Create: `packages/render/src/lib/subject.ts`, `packages/render/src/lib/crossfade.ts`
+- Create: `packages/render/src/lib/subject.ts`
 - Create: `packages/render/tests/unit/helpers.ts`
-- Test: `packages/render/tests/unit/subject.test.ts`, `packages/render/tests/unit/crossfade.test.ts`
+- Test: `packages/render/tests/unit/subject.test.ts`
 
 **Interfaces:**
 - Consumes: `Timeline`, `msToFrame` from `@adam-studio/model`; for tests `parseProject`, `parseStyle`, `resolve`.
-- Produces: `SLIDE_OUT_SHARE = 0.4`, `type SlideWindow = { clipId; kind: "out" | "in"; fromFrame; toFrame }`, `type SubjectWindow = { clipId; asset; fromFrame; toFrame }` (half-open), `slideWindows(timeline)`, `subjectWindows(timeline)`, `slideOffset(window, frame, width): { dx; blurPx }`. `src/lib/crossfade.ts`: `type CrossfadeWindow = { clipId; fromFrame; toFrame }` (clipId: the incoming clip; the window covers the last frames of the outgoing one), `crossfadeWindows(timeline)`, `crossfadeOpacity(window, frame)`. Test helpers: `styleInput`, `projectInput(over?)`, `timelineOf(over?)`.
+- Produces: `SLIDE_OUT_SHARE = 0.4`, `type SlideWindow = { clipId; kind: "out" | "in"; fromFrame; toFrame }`, `type SubjectWindow = { clipId; asset; fromFrame; toFrame }` (half-open), `slideWindows(timeline)`, `subjectWindows(timeline)`, `slideOffset(window, frame, width): { dx; blurPx }`. Test helpers: `styleInput`, `projectInput(over?)`, `timelineOf(over?)`.
 
 - [ ] **Step 1: Write the test helpers**
 
@@ -592,88 +592,11 @@ export function slideOffset(w: SlideWindow, frame: number, width: number): { dx:
 Run: `npm test -w @adam-studio/render` then `npm run typecheck -w @adam-studio/render`
 Expected: all PASS; typecheck exit code 0.
 
-- [ ] **Step 6: Write the failing crossfade test**
-
-A crossfade keeps the story magnetic: the incoming clip's lead-in (source frames just before its in point) is drawn over the last frames of the outgoing clip with rising opacity. Timing and audio stay cut at the boundary.
-
-`packages/render/tests/unit/crossfade.test.ts`:
-```ts
-import { describe, expect, it } from "vitest";
-import { crossfadeOpacity, crossfadeWindows } from "../../src/lib/crossfade";
-import { timelineOf } from "./helpers";
-
-const fade = { kind: "crossfade" as const, durationMs: 300 };
-
-describe("crossfadeWindows", () => {
-  it("lays the incoming clip's lead-in over the end of the outgoing clip", () => {
-    const tl = timelineOf({ story: [{ id: "c1", asset: "s", inMs: 0, outMs: 2000, transitionOut: fade }, { id: "c2", asset: "s", inMs: 2000, outMs: 4000 }] });
-    expect(crossfadeWindows(tl)).toEqual([{ clipId: "c2", fromFrame: 51, toFrame: 60 }]);
-  });
-  it("is limited by the source available before the incoming clip's in point", () => {
-    const tl = timelineOf({ story: [{ id: "c1", asset: "s", inMs: 0, outMs: 2000, transitionOut: fade }, { id: "c2", asset: "s", inMs: 100, outMs: 4000 }] });
-    expect(crossfadeWindows(tl)).toEqual([{ clipId: "c2", fromFrame: 57, toFrame: 60 }]);
-  });
-  it("has nothing to fade into after the last clip", () => {
-    const tl = timelineOf({ story: [{ id: "c1", asset: "s", inMs: 0, outMs: 4000, transitionOut: fade }] });
-    expect(crossfadeWindows(tl)).toEqual([]);
-  });
-});
-
-describe("crossfadeOpacity", () => {
-  it("rises linearly and reaches 1 at the cut", () => {
-    const w = { clipId: "c2", fromFrame: 51, toFrame: 60 };
-    expect(crossfadeOpacity(w, 51)).toBeCloseTo(0.1, 6);
-    expect(crossfadeOpacity(w, 59)).toBeCloseTo(0.9, 6);
-    expect(crossfadeOpacity(w, 60)).toBe(1);
-  });
-});
-```
-
-Expected values: 300 ms at 30 fps is 9 frames before the cut at frame 60. With c2 starting at 100 ms in its source, only 3 frames of lead-in exist.
-
-- [ ] **Step 7: Run it to see it fail**
-
-Run: `npm test -w @adam-studio/render`
-Expected: FAIL, cannot resolve `../../src/lib/crossfade`.
-
-- [ ] **Step 8: Implement**
-
-`packages/render/src/lib/crossfade.ts`:
-```ts
-import { msToFrame, type Timeline } from "@adam-studio/model";
-
-/** Frames where the incoming clip `clipId` is drawn, ahead of its start, over the outgoing clip (half-open). */
-export type CrossfadeWindow = { clipId: string; fromFrame: number; toFrame: number };
-
-export function crossfadeWindows(timeline: Timeline): CrossfadeWindow[] {
-  const out: CrossfadeWindow[] = [];
-  timeline.clips.forEach((c, i) => {
-    const next = timeline.clips[i + 1];
-    if (c.transitionOut.kind !== "crossfade" || !next) return;
-    // The lead-in reads the source before the next clip's in point: never more than exists.
-    const leadIn = msToFrame(next.sourceInMs, timeline.fps);
-    const n = Math.min(msToFrame(c.transitionOut.durationMs, timeline.fps), c.durationFrames, leadIn);
-    if (n >= 1) out.push({ clipId: next.id, fromFrame: next.fromFrame - n, toFrame: next.fromFrame });
-  });
-  return out;
-}
-
-/** Opacity of the incoming clip at an absolute frame: linear, 1 from the cut on. */
-export function crossfadeOpacity(w: CrossfadeWindow, frame: number): number {
-  return Math.min(1, Math.max(0, (frame - w.fromFrame + 1) / (w.toFrame - w.fromFrame + 1)));
-}
-```
-
-- [ ] **Step 9: Run tests and typecheck**
-
-Run: `npm test -w @adam-studio/render` then `npm run typecheck -w @adam-studio/render`
-Expected: all PASS; typecheck exit code 0.
-
-- [ ] **Step 10: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add packages/render
-git commit -m "feat(render): subject windows, person-only slide motion and crossfade windows
+git commit -m "feat(render): subject windows and person-only slide motion
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
@@ -1298,21 +1221,20 @@ describe("composition", () => {
     near(left!, RED);
   });
 
-  it("fades the incoming clip in over the end of the outgoing one", async () => {
+  it("crops to a rect of the source frame", async () => {
     // c2 is cropped to the blue half; the same public files serve this second timeline.
     const p = parseProject({
       ...projectInput(),
       story: [
-        { id: "c1", asset: "s", inMs: 0, outMs: 2000, transitionOut: { kind: "crossfade", durationMs: 300 } },
+        { id: "c1", asset: "s", inMs: 0, outMs: 2000 },
         { id: "c2", asset: "s", inMs: 2000, outMs: 4000, framing: { mode: "crop", rect: { x: 0.5, y: 0, w: 0.5, h: 1 } } },
       ],
     });
-    if (!p.ok) throw new Error("crossfade project is invalid");
-    const faded = { ...props, timeline: resolve(p.value, style) };
-    const [mid] = await pixels(55, [[50, 960]], faded);
-    near(mid!, [128, 0, 128], 45);
-    const [after] = await pixels(61, [[50, 960]], faded);
-    near(after!, BLUE);
+    if (!p.ok) throw new Error("crop project is invalid");
+    const cropped = { ...props, timeline: resolve(p.value, style) };
+    const [left, right] = await pixels(61, [[50, 960], [1030, 960]], cropped);
+    near(left!, BLUE);
+    near(right!, BLUE);
   });
 });
 ```
@@ -1444,7 +1366,6 @@ import { ClipLayer } from "./components/ClipLayer";
 import { ElementLayer } from "./components/ElementLayer";
 import { SubjectLayer } from "./components/SubjectLayer";
 import { ensureFonts } from "./fonts";
-import { crossfadeWindows } from "./lib/crossfade";
 import { GRADE_FILTER_ID, gradeFilter, vignetteBackground, warmthMatrix } from "./lib/grade";
 import { slideWindows, subjectWindows } from "./lib/subject";
 import type { RenderProps } from "./props";
@@ -1463,7 +1384,7 @@ export const Edit: FC<RenderProps> = (props) => {
         </filter>
       </svg>
       <AbsoluteFill style={{ filter }}>
-        <ClipLayer timeline={timeline} media={media} slides={slides} crossfades={crossfadeWindows(timeline)} />
+        <ClipLayer timeline={timeline} media={media} slides={slides} />
       </AbsoluteFill>
       <ElementLayer timeline={timeline} media={media} layer="behind-subject" />
       <AbsoluteFill style={{ filter }}>
@@ -1535,9 +1456,8 @@ export const Framed: FC<{ framing: Framing; zoom: number; sourceMs: number; sour
 `packages/render/src/components/ClipLayer.tsx`:
 ```tsx
 import type { FC } from "react";
-import { AbsoluteFill, Img, OffthreadVideo, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { Img, OffthreadVideo, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Timeline, TimelineClip } from "@adam-studio/model";
-import { crossfadeOpacity, type CrossfadeWindow } from "../lib/crossfade";
 import { zoomAt } from "../lib/framing";
 import type { SlideWindow } from "../lib/subject";
 import type { MediaFiles } from "../props";
@@ -1545,44 +1465,32 @@ import { Framed } from "./Framed";
 
 type Media = Record<string, MediaFiles>;
 
-export const ClipLayer: FC<{ timeline: Timeline; media: Media; slides: SlideWindow[]; crossfades: CrossfadeWindow[] }> = ({
-  timeline, media, slides, crossfades,
-}) => {
-  const clips = new Map(timeline.clips.map((c) => [c.id, c]));
-  return (
-    <>
-      {timeline.clips.map((clip) => (
-        <Sequence key={clip.id} from={clip.fromFrame} durationInFrames={clip.durationFrames} layout="none">
-          <ClipFrame clip={clip} media={media} startFrame={clip.fromFrame} slides={slides.filter((s) => s.clipId === clip.id)} />
-        </Sequence>
-      ))}
-      {crossfades.map((w) => (
-        <Sequence key={`xf:${w.clipId}`} from={w.fromFrame} durationInFrames={w.toFrame - w.fromFrame} layout="none">
-          <ClipFrame clip={clips.get(w.clipId)!} media={media} startFrame={w.fromFrame} slides={[]} fade={w} />
-        </Sequence>
-      ))}
-    </>
-  );
-};
+/** Story clips back to back; every transition except the person-only slide is a cut (crossfades are done by hand). */
+export const ClipLayer: FC<{ timeline: Timeline; media: Media; slides: SlideWindow[] }> = ({ timeline, media, slides }) => (
+  <>
+    {timeline.clips.map((clip) => (
+      <Sequence key={clip.id} from={clip.fromFrame} durationInFrames={clip.durationFrames} layout="none">
+        <ClipFrame clip={clip} media={media} slides={slides.filter((s) => s.clipId === clip.id)} />
+      </Sequence>
+    ))}
+  </>
+);
 
-/** A clip drawn from the absolute frame `startFrame`: before the clip's own start, it is a crossfade lead-in read from the source before the in point. */
-const ClipFrame: FC<{ clip: TimelineClip; media: Media; startFrame: number; slides: SlideWindow[]; fade?: CrossfadeWindow }> = ({
-  clip, media, startFrame, slides, fade,
-}) => {
+const ClipFrame: FC<{ clip: TimelineClip; media: Media; slides: SlideWindow[] }> = ({ clip, media, slides }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const abs = startFrame + frame;
-  const elapsedMs = ((abs - clip.fromFrame) * 1000) / fps;
+  const abs = clip.fromFrame + frame;
+  const elapsedMs = (frame * 1000) / fps;
   const sourceMs = clip.sourceInMs + elapsedMs;
   const files = media[clip.asset] ?? {};
   const second = clip.framing.mode === "split" ? media[clip.framing.asset] ?? {} : undefined;
-  const trimBefore = Math.round((clip.sourceInMs * fps) / 1000) + (startFrame - clip.fromFrame);
+  const trimBefore = Math.round((clip.sourceInMs * fps) / 1000);
   const zoom = zoomAt(clip.zoom, elapsedMs);
   const source = files.width && files.height ? { width: files.width, height: files.height } : undefined;
   // During a person-only slide the room without the person replaces the take.
   const inSlide = slides.some((s) => abs >= s.fromFrame && abs < s.toFrame);
   return (
-    <AbsoluteFill style={{ opacity: fade ? crossfadeOpacity(fade, abs) : 1 }}>
+    <>
       <Framed
         framing={clip.framing}
         zoom={zoom}
@@ -1594,7 +1502,7 @@ const ClipFrame: FC<{ clip: TimelineClip; media: Media; startFrame: number; slid
       {inSlide && files.plate ? (
         <Framed framing={clip.framing} zoom={zoom} sourceMs={sourceMs} source={source} render={(style) => <Img src={staticFile(files.plate!)} style={style} />} />
       ) : null}
-    </AbsoluteFill>
+    </>
   );
 };
 ```
@@ -1905,7 +1813,7 @@ const AudioItem: FC<{ src: string; item: TimelineAudio }> = ({ src, item }) => {
 - [ ] **Step 5: Run the end-to-end test and the typecheck**
 
 Run: `npm run test:e2e -w @adam-studio/render` then `npm run typecheck -w @adam-studio/render`
-Expected: 5 tests PASS (the first run downloads Chrome Headless Shell, then bundling and the stills take a few minutes); typecheck exit code 0. Frame 55 of the crossfade is at opacity 0.5 (5th of 9 lead-in frames, (55 - 51 + 1) / 10), so red and blue mix to about (128, 0, 128).
+Expected: 5 tests PASS (the first run downloads Chrome Headless Shell, then bundling and the stills take a few minutes); typecheck exit code 0. In the crop test the rect (right half, full height) is scaled 2x and centered, so the whole canvas shows the blue half.
 
 - [ ] **Step 6: Run the unit suite**
 

@@ -137,7 +137,8 @@ construction.
   plus optional keyframes `[{ "atMs", "rect" }]` for pan and zoom), `split` (a second asset for the other
   region, with a layout from the style).
 - `transitionOut` kinds in v1: `cut` (default), `subjectSlide` (person-only slide; needs a matte and a
-  plate), `crossfade`.
+  plate), `crossfade`. The renderer draws `crossfade` as a cut: crossfades are done by hand (decision of
+  2026-10-16).
 - Transcript editing maps to clips: deleting words splits or trims clips; restoring words reverses it.
   These are pure functions in `packages/model` (`cutWords`, `restoreWords`, `trimToWords`).
 
