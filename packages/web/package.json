@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@adam-studio/library": "0.1.0",
     "@adam-studio/model": "0.1.0",
     "@adam-studio/render": "0.1.0",
     "@remotion/player": "4.0.536",

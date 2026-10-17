@@ -8,8 +8,12 @@ import { listProjects } from "@adam-studio/web/server/projects";
 import { projectsRoot } from "@adam-studio/web/server/settings";
 import { z } from "zod";
 import { nameInRoot, runAction, runSetup, stills, tail } from "./run";
+import { importAsset, lookAt } from "@adam-studio/library/src/importer";
+import { inspirationRoot, searchLocal, type LibraryKind } from "@adam-studio/library/src/local";
+import { searchOnline } from "@adam-studio/library/src/online";
+import { pinterestBoards, syncPinterestBoard } from "@adam-studio/library/src/pinterest";
 import { saveSeries } from "@adam-studio/render/src/series";
-import { applySeriesIn, closeCurrentStep, listSeries, decideProposal, patchProject, projectDir, propose, setValue, ToolError, undo, updateItem } from "@adam-studio/web/server/store";
+import { addAssetIn, applySeriesIn, closeCurrentStep, listSeries, decideProposal, patchProject, projectDir, propose, setValue, ToolError, undo, updateItem } from "@adam-studio/web/server/store";
 import { projectSummary, transcriptText } from "./view";
 
 const INSTRUCTIONS = `Adam Studio: video edits described in project.json (story clips cut from takes, elements anchored on words,
@@ -91,6 +95,37 @@ tool("apply_series", "Applies a series to a project: its style, assets and treat
 
 tool("save_series", "Starts a series from a project: its style, the images and sounds its elements use, and its elements at 0 ms as the start treatment. Edit series.json afterwards for transition, beat and end treatments ({{beat.word}}, {{project.name}} placeholders).",
   { project, series: z.string() }, ({ project: p, series }) => text(`saved in ${saveSeries(dirOf(p), series)}`));
+
+const kind = z.enum(["video", "image", "audio", "font", "lottie"]);
+
+tool("search_assets", "Searches the creator's Inspiration folder first (their own references: videos, images, sounds, fonts, Lottie, notes), then, with online, free sources (Openverse CC0/CC BY images and sounds, Pexels, Pixabay, Freesound when keys exist).",
+  { query: z.string(), kind: kind.optional(), online: z.boolean().optional() },
+  async ({ query, kind: k, online }) => {
+    const local = searchLocal(query, k as LibraryKind | undefined).slice(0, 30).map(({ path, kind: kk, title, notes, durationMs, rel }) => ({ path, kind: kk, title, rel, notes: notes.slice(0, 300), durationMs }));
+    const web = online && k ? await searchOnline(query, k as LibraryKind) : { items: [], notes: online ? ["give a kind to search online"] : [] };
+    return text(JSON.stringify({ inspiration: inspirationRoot(), local, online: web.items, notes: web.notes }, null, 1));
+  });
+
+tool("look_at", "Shows a file or URL as a picture: four frames of a video, an image, the waveform of a sound, a font sample.",
+  { source: z.string().describe("absolute path or https URL") }, async ({ source }) => {
+    const l = await lookAt(source);
+    return { content: [{ type: "text" as const, text: `${l.kind}: ${l.note}` }, ...(l.jpeg ? [{ type: "image" as const, data: l.jpeg, mimeType: "image/jpeg" }] : [])] };
+  });
+
+tool("import_asset", "Copies a file (path) or downloads one (url) into the project's assets folder, records credits, and adds it as an asset. Fonts are copied only (use them in the style).",
+  { project, source: z.strictObject({ path: z.string().optional(), url: z.string().optional(), kind: kind.optional(), title: z.string().optional(), license: z.string().optional(), creator: z.string().optional(), page: z.string().optional() }), id: z.string().optional() },
+  async ({ project: p, source, id }) => {
+    const dir = dirOf(p);
+    const a = await importAsset(dir, source, id);
+    if (a.kind === "font") return text(`font copied to ${a.path}`);
+    const r = addAssetIn(dir, { id: a.id, kind: a.kind, path: a.path });
+    return text(`asset "${a.id}" (${a.kind}) added: ${a.path}\n${r.lint.join("\n") || "lint: clean"}`);
+  });
+
+tool("pinterest_boards", "The creator's Pinterest boards (official API; connect from the panel's Library page).", {}, async () => text(JSON.stringify(await pinterestBoards(), null, 1)));
+
+tool("pinterest_sync", "Copies a Pinterest board's pins into the Inspiration folder (Pinterest/<board>/) with their notes.",
+  { board: z.string() }, async ({ board }) => text(JSON.stringify(await syncPinterestBoard(board))));
 
 tool("still", "Renders frames of the edit (or of a variant, \"p1:B\") and shows them.",
   { project, atMs: z.array(z.number()).min(1).max(6), variant: z.string().optional() },

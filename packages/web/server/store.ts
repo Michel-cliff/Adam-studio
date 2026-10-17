@@ -159,3 +159,11 @@ export function applySeriesIn(dir: string, name: string) {
 }
 
 export { listSeries };
+
+/** Adds an asset (validated like every write); refuses an id already used. */
+export function addAssetIn(dir: string, asset: { id: string; kind: "video" | "audio" | "image" | "lottie"; path: string }) {
+  return edit(dir, (p) => {
+    if (p.assets.some((a) => a.id === asset.id)) throw new ToolError(`asset id "${asset.id}" is taken: pick another id`);
+    return { ...p, assets: [...p.assets, { ...asset, meta: {} }] };
+  });
+}

@@ -8,6 +8,7 @@ import { listFolder } from "./fsbrowse";
 import { hostAllowed, inside, originAllowed, safeName } from "./guards";
 import { BusyError, JobManager } from "./jobs";
 import { venvPython, WEB } from "./paths";
+import { libraryRoute } from "./library-routes";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
 import { applySeriesIn, cutWordsIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
@@ -61,6 +62,10 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     let m: RegExpMatchArray | null;
 
     if (path === "/api/ping") return send(res, 200, { app: "adam-studio" });
+    if (path.startsWith("/api/library/") || path.startsWith("/api/pinterest/")) {
+      const handled = await libraryRoute({ req, res, url, method, port, root: projectsRoot(settingsFile), send: (s, b) => send(res, s, b), body: () => body(req) });
+      if (handled) return;
+    }
     if (path === "/api/settings" && method === "GET") return send(res, 200, { projectsRoot: projectsRoot(settingsFile) });
     if (path === "/api/settings" && method === "PUT") {
       const b = await body(req);
