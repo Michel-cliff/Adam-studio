@@ -5,6 +5,7 @@ import { decideCommand } from "./commands/decide";
 import { addCommand, analyzeCommand, newCommand } from "./commands/new";
 import { renderCommand } from "./commands/render";
 import { reviewCommand } from "./commands/review";
+import { stillCommand } from "./commands/still";
 import { studioCommand } from "./commands/studio";
 import { CliError } from "./project-io";
 
@@ -16,6 +17,7 @@ const USAGE = `usage: npm run adam -- <command> <projectDir> [options]
   review <dir> [--step <step>]
   decide <dir> <proposalId> <A|B|C|reject|more> [--note "..."]
   studio <dir>
+  still <dir> --at 500,1500 [--variant p1:B]
   capcut-prep <dir> [--out folder] [--force]
   new <dir> <videos...> [--lang fr] [--format 9:16|16:9] [--style style.json] [--name name]
   add <dir> <videos...> [--lang fr]
@@ -39,6 +41,8 @@ async function main(argv: string[]): Promise<void> {
       assets: { type: "string" },
       steps: { type: "string" },
       "no-analyze": { type: "boolean" },
+      at: { type: "string" },
+      variant: { type: "string" },
     },
   });
   const [cmd, dirArg, ...rest] = positionals;
@@ -69,6 +73,12 @@ async function main(argv: string[]): Promise<void> {
     case "capcut-prep":
       await capcutPrepCommand(dir, { out: values.out ? resolve(base, values.out) : undefined, force: values.force ?? false, analyze: !values["no-analyze"] });
       return;
+    case "still": {
+      const at = (values.at ?? "").split(",").filter(Boolean).map(Number);
+      if (at.length === 0 || at.some((n) => !Number.isFinite(n))) throw new CliError("still needs --at <ms>[,<ms>...]");
+      await stillCommand(dir, { at, variant: values.variant, analyze: !values["no-analyze"] });
+      return;
+    }
     case "studio":
       studioCommand(dir, { analyze: !values["no-analyze"] });
       return;

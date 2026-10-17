@@ -2,6 +2,7 @@
   "name": "@adam-studio/web",
   "version": "0.1.0",
   "type": "module",
+  "exports": { "./server/*": "./server/*.ts" },
   "scripts": {
     "build": "vite build",
     "test": "vitest run tests/unit",

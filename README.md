@@ -12,6 +12,7 @@ Status: sub-project 1 (the edit core) in progress. See `docs/superpowers/specs/`
   transcript editing (`cutWords`, `restoreWords`, `trimToWords`), and the guided workflow (`decide()`).
 - `packages/render`: the Remotion composition and the `adam` CLI (`npm run adam -- render | review | decide |
   studio | capcut-prep <projectDir>`).
+- `packages/mcp`: the MCP server Claude Code edits projects through.
 - `packages/web`: the control panel in the browser (`npm run ui`).
 - `py/analysis`: the analysis pipeline (`python -m adam_analysis run`), called by `npm run adam -- new | add | analyze`.
 - `py/capcut`: the CapCut exporter (`python -m adam_capcut export <projectDir>`).
@@ -26,6 +27,16 @@ Requirements: Node 24 or later.
     npm run export-schemas -w @adam-studio/model
 
 Projects and media live outside this repository; never commit footage or third-party assets.
+
+## Claude Code (MCP)
+
+    claude mcp add --scope user adam-studio -- node <repo>/node_modules/tsx/dist/cli.mjs <repo>/packages/mcp/src/server.ts
+
+Claude then reads projects (`get_project`, `get_transcript`, `get_reference`), edits them (`apply_patch`, `update_item`,
+`set_value`, every write validated and backed up, `undo` to go back), proposes A/B/C variants and records decisions
+(`propose`, `decide`, `close_step`), looks at the result (`still` renders frames it can see) and runs analyze, render,
+review and the CapCut export (`run`, shown live in the control panel when it is open). `npm run adam -- still <dir>
+--at 500,1500 [--variant p1:B]` renders the same frames from the terminal.
 
 ## Control panel
 
