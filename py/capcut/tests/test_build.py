@@ -152,3 +152,28 @@ def test_warmed_takes_are_reused_across_exports_and_skipped_when_only_baked(lab,
     finally:
         restore()
     assert calls == []
+
+
+@pytest.mark.parametrize("with_font_id", [True, False])
+def test_every_range_of_every_caption_has_the_shadow(lab, project, tmp_path, with_font_id):
+    _, profiles = lab
+    tl_file = project / "renders" / "capcut" / "timeline.json"
+    original = tl_file.read_text(encoding="utf-8")
+    tl = json.loads(original)
+    tl["captions"].append({"id": "cap2", "fromFrame": 60, "durationFrames": 30, "text": "boîte noire", "highlightRanges": [[0, 5]], "x": 0.5, "y": 0.76})
+    tl_file.write_text(json.dumps(tl, ensure_ascii=False), encoding="utf-8")
+
+    def no_font_ids(plan):
+        for f in plan["fonts"].values():
+            f["resourceId"] = None
+    restore = _with_plan(project, (lambda plan: None) if with_font_id else no_font_ids)
+    try:
+        content = content_of(export(project, name=f"shadows {with_font_id}", projects_root=tmp_path, prepare=False), profiles)
+    finally:
+        restore()
+        tl_file.write_text(original, encoding="utf-8")
+    texts = texts_by_string(content)
+    for key in ("créé\nma boîte", "boîte noire"):
+        styles = json.loads(texts[key]["content"])["styles"]
+        assert len(styles) >= 2, key
+        assert all(st.get("shadows") for st in styles), (key, [bool(st.get("shadows")) for st in styles])
