@@ -19,7 +19,8 @@ Explicit requests from the creator: edit directly (apply_patch, update_item, set
 Creative choices: propose one to three variants (A, B, C) with propose; the creator reviews them in the control panel
 (npm run ui) or you render them with run review; decide records the choice. Guided steps run in order: cuts, structure,
 captions, hook, beats, visuals, sound, look. Every write is validated and backed up: undo puts back the previous version.
-Creator's taste so far: default effect animations feel a bit fast; lean slower.`;
+Creator taste so far: default effect animations feel a bit fast; lean slower (style motion.speed below 1 slows every effect).
+Effects: element kinds hud.panel, hud.stat, lottie, camera.zoom (punch-in); transitions flash, whip, zoom (get_reference kind:<name>).`;
 
 // stdout carries the protocol: library logs go to stderr.
 console.log = console.error;

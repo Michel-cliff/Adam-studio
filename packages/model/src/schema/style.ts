@@ -33,6 +33,8 @@ export const StyleSchema = z.strictObject({
     maxCharsPerLine: z.number().int().positive().default(22),
     intro: z.string().default("miniZoom"),
   }),
+  /** Animation speed of every effect: 1 as designed, below 1 slower (0.7 = 30% slower), above 1 faster. */
+  motion: z.strictObject({ speed: z.number().min(0.25).max(3).default(1) }).default({ speed: 1 }),
   slots: z.record(FormatSchema, z.record(z.string(), Point)),
   lint: z.record(
     FormatSchema,

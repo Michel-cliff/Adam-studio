@@ -48,6 +48,10 @@ export const TransitionOutSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("cut") }),
   z.strictObject({ kind: z.literal("crossfade"), durationMs: Ms }),
   z.strictObject({ kind: z.literal("subjectSlide"), durationMs: Ms, word: z.string().optional() }),
+  // Effects at the cut, centred on it; the timing stays that of a cut.
+  z.strictObject({ kind: z.literal("flash"), durationMs: Ms.default(240) }),
+  z.strictObject({ kind: z.literal("whip"), durationMs: Ms.default(300) }),
+  z.strictObject({ kind: z.literal("zoom"), durationMs: Ms.default(360) }),
 ]);
 
 export const ClipSchema = z

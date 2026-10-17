@@ -60,7 +60,9 @@ export function planMedia(projectDir: string, project: Project, timeline: Timeli
   }
 
   const fileAssets = new Set<string>();
-  for (const e of timeline.elements) if (e.kind === "image") fileAssets.add(String(e.props.asset));
+  for (const e of timeline.elements) {
+    if ((e.kind === "image" || e.kind === "lottie" || e.kind === "hud.panel") && typeof e.props.asset === "string") fileAssets.add(e.props.asset);
+  }
   for (const a of timeline.audio) if (!videoAssets.has(a.asset)) fileAssets.add(a.asset);
   for (const id of fileAssets) {
     const asset = assets.get(id);

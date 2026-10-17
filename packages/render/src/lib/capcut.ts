@@ -1,3 +1,4 @@
+import { cameraWindows } from "./camera";
 import type { Timeline } from "@adam-studio/model";
 import { subjectWindows } from "./subject";
 
@@ -14,7 +15,7 @@ export const NATIVE_FRONT_KINDS: ReadonlySet<string> = new Set(["image", "title"
 /** What the CapCut exporter cannot do natively, and the report entries explaining it. */
 export function planCapcut(timeline: Timeline, nativeKinds: ReadonlySet<string> = NATIVE_FRONT_KINDS): CapcutPlan {
   const entries: ReportEntry[] = [];
-  const ranges: [number, number][] = subjectWindows(timeline).map((w) => [w.fromFrame, w.toFrame]);
+  const ranges: [number, number][] = [...subjectWindows(timeline).map((w): [number, number] => [w.fromFrame, w.toFrame]), ...cameraWindows(timeline)];
   for (const c of timeline.clips) {
     if (c.framing.mode === "split") {
       ranges.push([c.fromFrame, c.fromFrame + c.durationFrames]);
@@ -22,6 +23,9 @@ export function planCapcut(timeline: Timeline, nativeKinds: ReadonlySet<string> 
     }
     if (c.transitionOut.kind === "subjectSlide") {
       entries.push({ id: `transition:${c.id}`, kind: "subjectSlide", status: "baked", reason: "person-only slide, baked into the main track" });
+    }
+    if (c.transitionOut.kind === "flash" || c.transitionOut.kind === "whip" || c.transitionOut.kind === "zoom") {
+      entries.push({ id: `transition:${c.id}`, kind: c.transitionOut.kind, status: "baked", reason: "transition effect, baked into the main track" });
     }
     if (c.transitionOut.kind === "crossfade") {
       entries.push({ id: `transition:${c.id}`, kind: "crossfade", status: "skipped", reason: "crossfades are added by hand in CapCut" });
@@ -39,6 +43,8 @@ export function planCapcut(timeline: Timeline, nativeKinds: ReadonlySet<string> 
   for (const e of timeline.elements) {
     if (e.layer === "behind-subject") {
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "drawn behind the subject, baked into the main track" });
+    } else if (e.kind === "camera.zoom") {
+      entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "screen zoom, baked into the main track" });
     } else if (!nativeKinds.has(e.kind)) {
       overlays.push({ elementId: e.id, fromFrame: e.fromFrame, durationFrames: e.durationFrames });
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "no native CapCut equivalent: transparent overlay (MOV ProRes 4444)" });

@@ -9,10 +9,12 @@ export const Title: FC<{ el: TimelineElement; style: Style }> = ({ el, style }) 
   const { fps, width, height } = useVideoConfig();
   const props = el.props as TitleProps;
   const ms = (frame * 1000) / fps + el.trimStartMs;
+  const speed = style.motion?.speed ?? 1;
   const phase = props.phases.find((p) => ms >= p.startMs && ms < p.endMs);
   if (!phase) return null;
-  const local = ms - phase.startMs;
-  const phaseMs = phase.endMs - phase.startMs;
+  // Animations run on a clock slowed (or sped up) by the style's motion speed; phases keep their times.
+  const local = (ms - phase.startMs) * speed;
+  const phaseMs = (phase.endMs - phase.startMs) * speed;
   const g = glitchAmount(local, phaseMs, phase.lines.length);
   const jitter = g > 0 ? (((frame * 37) % 11) - 5) * g : 0;
   return (

@@ -3,6 +3,9 @@ import { Sequence } from "remotion";
 import type { Timeline, TimelineElement } from "@adam-studio/model";
 import type { MediaFiles } from "../props";
 import { BigWord } from "./BigWord";
+import { HudPanel } from "./HudPanel";
+import { HudStat } from "./HudStat";
+import { LottieElement } from "./LottieElement";
 import { ImageElement } from "./ImageElement";
 import { Title } from "./Title";
 
@@ -28,7 +31,13 @@ const ElementView: FC<{ el: TimelineElement; timeline: Timeline; media: Record<s
     case "text.behindSubject":
       return <BigWord el={el} style={timeline.style} />;
     case "image":
-      return <ImageElement el={el} media={media} />;
+      return <ImageElement el={el} media={media} speed={timeline.style.motion?.speed ?? 1} />;
+    case "hud.panel":
+      return <HudPanel el={el} style={timeline.style} media={media} />;
+    case "hud.stat":
+      return <HudStat el={el} style={timeline.style} />;
+    case "lottie":
+      return <LottieElement el={el} style={timeline.style} media={media} />;
     default:
       return null;
   }

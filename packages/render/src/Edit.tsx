@@ -1,5 +1,6 @@
 import type { FC } from "react";
-import { AbsoluteFill } from "remotion";
+import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { cameraAt } from "./lib/camera";
 import { AudioLayer } from "./components/AudioLayer";
 import { Captions } from "./components/Captions";
 import { ClipLayer } from "./components/ClipLayer";
@@ -12,6 +13,7 @@ import type { RenderProps } from "./props";
 
 export const Edit: FC<RenderProps> = (props) => {
   ensureFonts(props.fonts);
+  const frame = useCurrentFrame();
   const { timeline, media } = props;
   const mode = props.mode ?? { kind: "full" };
   if (mode.kind === "overlay") {
@@ -28,6 +30,7 @@ export const Edit: FC<RenderProps> = (props) => {
   // rest of the grade over the whole main track, baked or native.
   const filter = full ? gradeFilter(grade, GRADE_FILTER_ID) : warmthFilter(grade, GRADE_FILTER_ID);
   const slides = slideWindows(timeline);
+  const cam = cameraAt(timeline, frame);
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
       <svg width={0} height={0} style={{ position: "absolute" }}>
@@ -35,13 +38,16 @@ export const Edit: FC<RenderProps> = (props) => {
           <feColorMatrix type="matrix" values={warmthMatrix(grade.warmth).join(" ")} />
         </filter>
       </svg>
-      <AbsoluteFill style={{ filter }}>
-        <ClipLayer timeline={timeline} media={media} slides={slides} />
+      <AbsoluteFill style={{ transform: cam.transform, transformOrigin: cam.origin, filter: cam.filter }}>
+        <AbsoluteFill style={{ filter }}>
+          <ClipLayer timeline={timeline} media={media} slides={slides} />
+        </AbsoluteFill>
+        <ElementLayer timeline={timeline} media={media} layer="behind-subject" />
+        <AbsoluteFill style={{ filter }}>
+          <SubjectLayer timeline={timeline} media={media} windows={subjectWindows(timeline)} slides={slides} />
+        </AbsoluteFill>
       </AbsoluteFill>
-      <ElementLayer timeline={timeline} media={media} layer="behind-subject" />
-      <AbsoluteFill style={{ filter }}>
-        <SubjectLayer timeline={timeline} media={media} windows={subjectWindows(timeline)} slides={slides} />
-      </AbsoluteFill>
+      {cam.flash > 0 ? <AbsoluteFill style={{ backgroundColor: "white", opacity: cam.flash }} /> : null}
       {full && grade.vignette > 0 ? <AbsoluteFill style={{ background: vignetteBackground(grade.vignette) }} /> : null}
       {full ? <ElementLayer timeline={timeline} media={media} layer="front" /> : null}
       {full ? <Captions timeline={timeline} /> : null}

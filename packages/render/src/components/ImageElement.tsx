@@ -5,14 +5,14 @@ import type { ImageProps, TimelineElement } from "@adam-studio/model";
 import { presetStyle } from "../lib/presets";
 import type { MediaFiles } from "../props";
 
-export const ImageElement: FC<{ el: TimelineElement; media: Record<string, MediaFiles> }> = ({ el, media }) => {
+export const ImageElement: FC<{ el: TimelineElement; media: Record<string, MediaFiles>; speed?: number }> = ({ el, media, speed = 1 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const props = el.props as ImageProps;
   const file = media[props.asset]?.file;
   if (!file) return null;
-  const ms = (frame * 1000) / fps + el.trimStartMs;
-  const totalMs = (el.durationFrames * 1000) / fps + el.trimStartMs;
+  const ms = ((frame * 1000) / fps + el.trimStartMs) * speed;
+  const totalMs = ((el.durationFrames * 1000) / fps + el.trimStartMs) * speed;
   const intro = presetStyle(props.intro, ms, frame);
   const outro = presetStyle(props.outro, totalMs - ms, frame);
   const box: CSSProperties =
