@@ -55,7 +55,8 @@ format 9:16 or 16:9, language (auto or a list: fr, en, ...). Runs `new` or `add`
 
 **Project.**
 - Takes: id, file name, duration, the first words of the transcript, and the analysis state of each
-  cache file (edit, proxy, transcript, silences, subject, plate: done, missing, or not needed).
+  cache file (edit, proxy, transcript, silences: done or missing; subject and plate: done or "on
+  demand", since they are made when an edit needs them).
 - Buttons: Analyze, Render, Review, Export to CapCut, Open Studio.
 - Render: the lint result is shown first (errors and warnings from `adam` itself, read from the job
   output). When the render refuses because of lint errors, the page offers "Render anyway" (`--force`).
