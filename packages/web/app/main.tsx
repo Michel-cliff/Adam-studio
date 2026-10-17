@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { Editor } from "./Editor";
 import { Home } from "./Home";
 import { NewProject } from "./NewProject";
 import { Project } from "./Project";
@@ -17,12 +18,13 @@ function App() {
   let body;
   if (page === "new") body = <NewProject />;
   else if (page === "p" && name && sub === "add") body = <NewProject addTo={name} />;
+  else if (page === "p" && name && sub === "edit") body = <Editor key={name} name={name} />;
   else if (page === "p" && name) body = <Project key={name} name={name} jobId={sub === "job" ? id : undefined} />;
   else body = <Home />;
   return (
     <>
       <header><a href="#/">Adam Studio</a></header>
-      <main>{body}</main>
+      <main className={page === "p" && sub === "edit" ? "wide" : ""}>{body}</main>
     </>
   );
 }

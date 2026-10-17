@@ -1,5 +1,6 @@
+import { src } from "../lib/src";
 import type { FC } from "react";
-import { Img, OffthreadVideo, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { Img, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Timeline, TimelineClip } from "@adam-studio/model";
 import { zoomAt } from "../lib/framing";
 import type { SlideWindow } from "../lib/subject";
@@ -39,11 +40,11 @@ const ClipFrame: FC<{ clip: TimelineClip; media: Media; slides: SlideWindow[] }>
         zoom={zoom}
         sourceMs={sourceMs}
         source={source}
-        render={(style) => (files.video ? <OffthreadVideo src={staticFile(files.video)} trimBefore={trimBefore} muted style={style} /> : null)}
-        renderSecond={second?.video ? (style) => <OffthreadVideo src={staticFile(second.video!)} trimBefore={trimBefore} muted style={style} /> : undefined}
+        render={(style) => (files.video ? <OffthreadVideo src={src(files.video)} trimBefore={trimBefore} muted style={style} /> : null)}
+        renderSecond={second?.video ? (style) => <OffthreadVideo src={src(second.video!)} trimBefore={trimBefore} muted style={style} /> : undefined}
       />
       {inSlide && files.plate ? (
-        <Framed framing={clip.framing} zoom={zoom} sourceMs={sourceMs} source={source} render={(style) => <Img src={staticFile(files.plate!)} style={style} />} />
+        <Framed framing={clip.framing} zoom={zoom} sourceMs={sourceMs} source={source} render={(style) => <Img src={src(files.plate!)} style={style} />} />
       ) : null}
     </>
   );

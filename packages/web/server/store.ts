@@ -4,7 +4,8 @@ import {
   applyPatch, closeStep, decide, deepMerge, lint, parseProject, parseStyle, PatchSchema, ProposalSchema, resolve,
   type Decision, type Plain, type Project, type Style, type Timeline,
 } from "@adam-studio/model";
-import { safeName } from "@adam-studio/web/server/guards";
+import { cutWords, tightenPauses } from "./cuts";
+import { safeName } from "./guards";
 
 export class ToolError extends Error {}
 
@@ -69,7 +70,7 @@ export function undo(dir: string): string {
   return `restored the version saved at ${last.replace(".json", "")} (${backups.length - 1} more to undo)`;
 }
 
-function edit(dir: string, fn: (p: Project) => Project) {
+export function edit(dir: string, fn: (p: Project) => Project) {
   return save(dir, fn(load(dir).project));
 }
 
@@ -134,4 +135,12 @@ export function decideProposal(dir: string, id: string, decision: Decision, note
 
 export function closeCurrentStep(dir: string) {
   return edit(dir, (project) => { try { return closeStep(project); } catch (e) { throw new ToolError((e as Error).message); } });
+}
+
+export function cutWordsIn(dir: string, words: string[]) {
+  return edit(dir, (p) => { try { return cutWords(p, words); } catch (e) { throw new ToolError((e as Error).message); } });
+}
+
+export function tightenIn(dir: string, minPauseMs: number, keepMs: number) {
+  return edit(dir, (p) => { try { return tightenPauses(p, minPauseMs, keepMs); } catch (e) { throw new ToolError((e as Error).message); } });
 }

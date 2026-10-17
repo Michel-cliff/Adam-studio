@@ -8,7 +8,7 @@ import { listProjects } from "@adam-studio/web/server/projects";
 import { projectsRoot } from "@adam-studio/web/server/settings";
 import { z } from "zod";
 import { nameInRoot, runAction, runSetup, stills, tail } from "./run";
-import { closeCurrentStep, decideProposal, patchProject, projectDir, propose, setValue, ToolError, undo, updateItem } from "./store";
+import { closeCurrentStep, decideProposal, patchProject, projectDir, propose, setValue, ToolError, undo, updateItem } from "@adam-studio/web/server/store";
 import { projectSummary, transcriptText } from "./view";
 
 const INSTRUCTIONS = `Adam Studio: video edits described in project.json (story clips cut from takes, elements anchored on words,

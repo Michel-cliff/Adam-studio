@@ -62,7 +62,8 @@ export function Project({ name, jobId }: { name: string; jobId?: string }) {
     <>
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h1>{name}</h1>
-        <a className="button quiet" href={`#/p/${enc(name)}/add`} style={{ background: "transparent", color: "inherit", border: "1px solid var(--line)" }}>Add rushes</a>
+        <div className="row"><a className="button" href={`#/p/${enc(name)}/edit`}>Open editor</a>
+        <a className="button quiet" href={`#/p/${enc(name)}/add`} style={{ background: "transparent", color: "inherit", border: "1px solid var(--line)" }}>Add rushes</a></div>
       </div>
       {error && !(jobId && error.startsWith("no project")) && <p className="error">{error}</p>}
       {view && !view.ok && <p className="error">{view.error}</p>}

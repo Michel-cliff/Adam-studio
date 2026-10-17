@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { makeSynthetic } from "../../render/tests/e2e/synthetic";
-import { closeCurrentStep, decideProposal, patchProject, projectDir, propose, setValue, undo, updateItem } from "../src/store";
+import { closeCurrentStep, decideProposal, patchProject, projectDir, propose, setValue, undo, updateItem } from "@adam-studio/web/server/store";
 import { projectSummary, transcriptText } from "../src/view";
 
 let dir: string;

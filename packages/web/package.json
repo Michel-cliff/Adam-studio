@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@adam-studio/model": "0.1.0",
+    "@adam-studio/render": "0.1.0",
+    "@remotion/player": "4.0.536",
+    "remotion": "4.0.536",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "tsx": "^4.23.15"

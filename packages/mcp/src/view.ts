@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolve } from "@adam-studio/model";
-import { lintLines, load, ToolError } from "./store";
+import { lintLines, load, ToolError } from "@adam-studio/web/server/store";
 
 const s = (ms: number) => (ms / 1000).toFixed(2);
 

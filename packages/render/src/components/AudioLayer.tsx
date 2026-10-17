@@ -1,5 +1,6 @@
+import { src as mediaSrc } from "../lib/src";
 import type { FC } from "react";
-import { Html5Audio, Sequence, staticFile, useVideoConfig } from "remotion";
+import { Html5Audio, Sequence, useVideoConfig } from "remotion";
 import type { Timeline, TimelineAudio } from "@adam-studio/model";
 import { audioVolume } from "../lib/audio";
 import type { MediaFiles } from "../props";
@@ -25,5 +26,5 @@ export const AudioLayer: FC<{ timeline: Timeline; media: Record<string, MediaFil
 const AudioItem: FC<{ src: string; item: TimelineAudio }> = ({ src, item }) => {
   const { fps } = useVideoConfig();
   // The volume callback receives the frame counted from the start of this audio, as audioVolume expects.
-  return <Html5Audio src={staticFile(src)} trimBefore={Math.round((item.sourceInMs * fps) / 1000)} volume={(f) => audioVolume(item, f, fps)} />;
+  return <Html5Audio src={mediaSrc(src)} trimBefore={Math.round((item.sourceInMs * fps) / 1000)} volume={(f) => audioVolume(item, f, fps)} />;
 };

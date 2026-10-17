@@ -2,6 +2,7 @@
   "name": "@adam-studio/render",
   "version": "0.1.0",
   "type": "module",
+  "exports": { "./edit": "./src/Edit.tsx", "./src/*": "./src/*.ts" },
   "scripts": {
     "test": "vitest run tests/unit",
     "test:e2e": "vitest run tests/e2e --no-file-parallelism --testTimeout=900000 --hookTimeout=900000",

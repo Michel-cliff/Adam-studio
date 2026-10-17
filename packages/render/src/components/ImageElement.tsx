@@ -1,5 +1,6 @@
+import { src } from "../lib/src";
 import type { CSSProperties, FC } from "react";
-import { Img, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { Img, useCurrentFrame, useVideoConfig } from "remotion";
 import type { ImageProps, TimelineElement } from "@adam-studio/model";
 import { presetStyle } from "../lib/presets";
 import type { MediaFiles } from "../props";
@@ -20,7 +21,7 @@ export const ImageElement: FC<{ el: TimelineElement; media: Record<string, Media
       : { position: "absolute", left: el.x * width, top: el.y * height, maxWidth: "90%", maxHeight: "90%", objectFit: props.fit, translate: "-50% -50%" };
   return (
     <Img
-      src={staticFile(file)}
+      src={src(file)}
       style={{
         ...box,
         opacity: Math.min(intro.opacity ?? 1, outro.opacity ?? 1),

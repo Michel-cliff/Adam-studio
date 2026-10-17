@@ -8,7 +8,9 @@ import { listFolder } from "./fsbrowse";
 import { hostAllowed, inside, originAllowed, safeName } from "./guards";
 import { BusyError, JobManager } from "./jobs";
 import { venvPython, WEB } from "./paths";
+import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
+import { cutWordsIn, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
 import { projectsRoot, SETTINGS_FILE, setProjectsRoot } from "./settings";
 import { watchProjects } from "./watch";
 
@@ -99,6 +101,32 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       if (!file) throw new HttpError(404, "no such file");
       return serveFile(req, res, file);
     }
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/preview$/)) && method === "GET") {
+      const { name, dir } = existing(m[1]!);
+      return send(res, 200, previewData(dir, name));
+    }
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/media\/(.+)$/)) && (method === "GET" || method === "HEAD")) {
+      const { name, dir } = existing(m[1]!);
+      const file = mediaFile(dir, name, m[2]!.split("/").map(decodeURIComponent).join("/"));
+      if (!file) throw new HttpError(404, "no such media");
+      return serveFile(req, res, file);
+    }
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/raw$/)) && method === "GET") {
+      return send(res, 200, loadRaw(existing(m[1]!).dir));
+    }
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/edit$/)) && method === "POST") {
+      const { dir } = existing(m[1]!);
+      const b = await body(req);
+      switch (b.op) {
+        case "update_item": return send(res, 200, updateItem(dir, b.collection === "story" ? "story" : "elements", String(b.id), b.changes ?? {}));
+        case "set_value": return send(res, 200, setValue(dir, String(b.pointer), b.remove ? undefined : b.value));
+        case "patch": return send(res, 200, patchProject(dir, b.patch));
+        case "cut_words": return send(res, 200, cutWordsIn(dir, Array.isArray(b.words) ? b.words.map(String) : []));
+        case "tighten": return send(res, 200, tightenIn(dir, Number(b.minPauseMs ?? 600), Number(b.keepMs ?? 200)));
+        case "undo": return send(res, 200, { message: undo(dir) });
+        default: throw new HttpError(400, `unknown edit "${b.op}"`);
+      }
+    }
     if ((m = path.match(/^\/api\/jobs\/([^/]+)$/)) && method === "GET") {
       const job = jobs.get(m[1]!);
       if (!job) throw new HttpError(404, "no such job");
@@ -146,7 +174,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     route(req, res, port).catch((e: unknown) => {
       if (res.headersSent) { res.end(); return; }
       if (e instanceof HttpError) return send(res, e.status, { error: e.message });
-      if (e instanceof ActionError) return send(res, 400, { error: e.message });
+      if (e instanceof ActionError || e instanceof ToolError) return send(res, 400, { error: e.message });
       if (e instanceof BusyError) return send(res, 409, { error: e.message });
       if (e instanceof URIError) return send(res, 404, { error: "bad path" });
       send(res, 500, { error: (e as Error).message });

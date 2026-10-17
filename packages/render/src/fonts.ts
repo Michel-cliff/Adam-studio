@@ -1,5 +1,5 @@
+import { src } from "./lib/src";
 import { loadFont } from "@remotion/fonts";
-import { staticFile } from "remotion";
 import { CAPTION_FONT, TITLE_FONT, type RenderProps } from "./props";
 
 const requested = new Set<string>();
@@ -10,6 +10,6 @@ export function ensureFonts(fonts: RenderProps["fonts"]): void {
     const key = `${family}:${path}`;
     if (!path || requested.has(key)) continue;
     requested.add(key);
-    void loadFont({ family, url: staticFile(path) });
+    void loadFont({ family, url: src(path) });
   }
 }

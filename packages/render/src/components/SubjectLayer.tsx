@@ -1,5 +1,6 @@
+import { src } from "../lib/src";
 import type { FC } from "react";
-import { AbsoluteFill, OffthreadVideo, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Timeline, TimelineClip } from "@adam-studio/model";
 import { zoomAt } from "../lib/framing";
 import { slideOffset, type SlideWindow, type SubjectWindow } from "../lib/subject";
@@ -50,7 +51,7 @@ const SubjectFrame: FC<{ clip: TimelineClip; files: MediaFiles; startFrame: numb
         sourceMs={clip.sourceInMs + elapsedMs}
         source={files.width && files.height ? { width: files.width, height: files.height } : undefined}
         bare
-        render={(style) => <OffthreadVideo src={staticFile(files.subject!)} trimBefore={trimBefore} muted transparent style={style} />}
+        render={(style) => <OffthreadVideo src={src(files.subject!)} trimBefore={trimBefore} muted transparent style={style} />}
       />
     </AbsoluteFill>
   );

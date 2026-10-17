@@ -6,7 +6,7 @@ import { buildCommand, cliCommand, type Command } from "@adam-studio/web/server/
 import { JobManager } from "@adam-studio/web/server/jobs";
 import { venvPython } from "@adam-studio/web/server/paths";
 import type { JobView } from "@adam-studio/web/server/types";
-import { ToolError } from "./store";
+import { ToolError } from "@adam-studio/web/server/store";
 
 const PANEL = `http://127.0.0.1:${process.env.ADAM_UI_PORT ?? 4317}`;
 const local = new JobManager();
