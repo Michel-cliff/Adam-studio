@@ -40,3 +40,16 @@ describe("captions", () => {
     expect(resolve(p, makeStyle()).warnings.join()).toMatch(/too long/);
   });
 });
+
+describe("filler words", () => {
+  it("follow the transcript language, unless the format sets its own", () => {
+    const en = makeProject({ transcript: { lang: "en", words: { a: [{ id: "a.w0", text: "um", startMs: 1000, endMs: 1300 }, { id: "a.w1", text: "euh", startMs: 1400, endMs: 1700 }] } } } as never);
+    const rules = (p: typeof en, style = makeStyle()) => lint(p, resolve(p, style)).filter((w) => w.rule === "pace.fillers").map((w) => w.message);
+    expect(rules(en).join()).toMatch(/"um"/);
+    expect(rules(en).join()).not.toMatch(/"euh"/);
+    const fr = makeProject();
+    expect(makeStyle().fillers.fr).toContain("euh");
+    const own = makeStyle({ lint: { "9:16": { minDurationMs: 0, maxDurationMs: 60000, fillers: ["un"] }, "16:9": { minDurationMs: 0, maxDurationMs: 60000 } } } as never);
+    expect(rules(fr, own).join()).toMatch(/"un"/);
+  });
+});

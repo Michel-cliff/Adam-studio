@@ -101,3 +101,54 @@ def test_one_image_used_full_and_contained_gets_two_materials_with_their_own_siz
     segs = [s for t in content["tracks"] if t["name"].startswith("front") for s in t["segments"]]
     used = {s["material_id"] for s in segs}
     assert {m["id"] for m in photos} <= used
+
+
+def _with_plan(project, change):
+    f = project / "renders" / "capcut" / "capcut-plan.json"
+    original = f.read_text(encoding="utf-8")
+    plan = json.loads(original)
+    change(plan)
+    f.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+    return lambda: f.write_text(original, encoding="utf-8")
+
+
+def test_a_clip_inside_a_bake_is_reported_baked(lab, project, tmp_path):
+    restore = _with_plan(project, lambda plan: plan.update(bakes=[{"id": "b01", "fromFrame": 0, "toFrame": 60, "file": "bake/b01.mp4"}]))
+    try:
+        export(project, name="inside bake", projects_root=tmp_path, prepare=False)
+    finally:
+        restore()
+    r = report_of(project, "inside bake")
+    assert r["clip:c1"]["status"] == "baked" and "b01" in r["clip:c1"]["reason"]
+    assert r["clip:c2"]["status"] == "native"
+
+
+def test_the_exporter_refuses_native_kinds_it_cannot_build(lab, project, tmp_path):
+    from adam_capcut.errors import ExportError
+    restore = _with_plan(project, lambda plan: plan.update(nativeKinds=["image", "title", "text.behindSubject", "hud.panel"]))
+    try:
+        with pytest.raises(ExportError, match="hud.panel"):
+            export(project, name="kinds", projects_root=tmp_path, prepare=False)
+    finally:
+        restore()
+
+
+def test_warmed_takes_are_reused_across_exports_and_skipped_when_only_baked(lab, project, tmp_path, monkeypatch, capsys):
+    import shutil
+    import adam_capcut.media as media
+    shutil.rmtree(project / "renders" / ".capcut-warm", ignore_errors=True)
+    calls = []
+    real = media.warm_copy
+    monkeypatch.setattr(media, "warm_copy", lambda *a, **k: (calls.append(a[0]), real(*a, **k)))
+    export(project, name="warm 1", projects_root=tmp_path, prepare=False)
+    export(project, name="warm 2", projects_root=tmp_path, prepare=False)
+    assert len(calls) == 1
+    out = capsys.readouterr().err
+    assert "warming take s" in out and "reusing the warmed take s" in out
+    calls.clear()
+    restore = _with_plan(project, lambda plan: plan.update(bakes=[{"id": "b01", "fromFrame": 0, "toFrame": 120, "file": "bake/b01.mp4"}]))
+    try:
+        export(project, name="all baked", projects_root=tmp_path, prepare=False)
+    finally:
+        restore()
+    assert calls == []

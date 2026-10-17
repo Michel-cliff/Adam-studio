@@ -73,6 +73,26 @@ def crop_rect_at(framing: dict, source_ms: float) -> dict:
     return prev["rect"]
 
 
+def crop_sample_times(framing: dict, source_in_ms: float, offset_ms: float, end_ms: float, step_ms: float = 100) -> list[float]:
+    """Clip-relative times for crop keyframes: the segment's ends, the framing's keyframes, and a sample every
+    step_ms while the rect moves. CapCut interpolates scale and position linearly, the renderer the rect: samples
+    keep the two together."""
+    points = sorted([{"atMs": 0, "rect": framing["rect"]}, *framing.get("keyframes", [])], key=lambda p: p["atMs"])
+    times = {offset_ms, end_ms}
+    for a, b in zip(points, points[1:]):
+        start, stop = a["atMs"] - source_in_ms, b["atMs"] - source_in_ms
+        if offset_ms < stop < end_ms:
+            times.add(stop)
+        if a["rect"] == b["rect"]:
+            continue
+        t = max(start, offset_ms)
+        while t < min(stop, end_ms):
+            if t > offset_ms:
+                times.add(t)
+            t += step_ms
+    return sorted(times)
+
+
 def crop_transform(rect: dict, source: tuple[int, int], canvas: tuple[int, int], zoom: float = 1.0) -> tuple[float, float, float]:
     """CapCut scale and position so the normalized source rect covers the canvas, centered (the renderer's
     cropBox), then zoomed about the canvas center."""

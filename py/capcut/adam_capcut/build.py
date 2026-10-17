@@ -6,7 +6,7 @@ from .layout import main_track
 from .media import probe
 from .titles import big_word_text, title_texts
 from .tracks import allocate
-from .units import cover_scale, crop_rect_at, crop_transform, hex_rgb, image_scale, ms_us, place, span_us, to_hex, zoom_at
+from .units import cover_scale, crop_rect_at, crop_sample_times, crop_transform, hex_rgb, image_scale, ms_us, place, span_us, to_hex, zoom_at
 
 # CapCut font size per unit of text size as a fraction of the canvas width: the lab's captions were 10.5 for
 # about 0.052. Provisional, checked in CapCut (docs/decisions/0002-capcut-export-check.md).
@@ -75,7 +75,13 @@ class Builder:
             self.grade(seg)
             self.script.add_segment(seg, "main")
         for c in self.tl["clips"]:
-            if c["framing"]["mode"] != "split":
+            if c["framing"]["mode"] == "split":
+                continue
+            end = c["fromFrame"] + c["durationFrames"]
+            inside = next((b for b in self.plan["bakes"] if b["fromFrame"] <= c["fromFrame"] and end <= b["toFrame"]), None)
+            if inside:
+                self.entries.append(entry(f"clip:{c['id']}", "clip", "baked", f"entirely inside {inside['id']}, rendered by Remotion"))
+            else:
                 self.entries.append(entry(f"clip:{c['id']}", "clip", "native", f"{c['framing']['mode']} framing"))
 
     def clip_part(self, part: dict):
@@ -88,10 +94,8 @@ class Builder:
         seg = p.Video_segment(self.video_material(("video", c["asset"]), path, info), tr,
                               source_timerange=p.Timerange(ms_us(c["sourceInMs"] + offset_ms), tr.duration), volume=c["volume"])
         framing = c["framing"]
-        times = [offset_ms, end_ms]
-        if framing["mode"] == "crop":
-            times += [k["atMs"] - c["sourceInMs"] for k in framing.get("keyframes", []) if offset_ms < k["atMs"] - c["sourceInMs"] < end_ms]
-        for elapsed in sorted(set(times)):
+        times = crop_sample_times(framing, c["sourceInMs"], offset_ms, end_ms) if framing["mode"] == "crop" else [offset_ms, end_ms]
+        for elapsed in times:
             t_us = min(tr.duration, ms_us(elapsed - offset_ms))
             z = zoom_at(c["zoom"], elapsed)
             if framing["mode"] == "crop":

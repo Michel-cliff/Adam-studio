@@ -39,3 +39,18 @@ describe("camera", () => {
     expect(plan.entries.find((e) => e.id === "z")?.status).toBe("baked");
   });
 });
+
+describe("CapCut plan report", () => {
+  it("never makes overlays of kinds that draw nothing, and reports orphans and dropped clips", () => {
+    const tl = timeline();
+    tl.elements.push({ id: "beep", kind: "sfx", layer: "front", fromFrame: 10, durationFrames: 10, trimStartMs: 0, x: 0.5, y: 0.5, props: { asset: "b" } } as never);
+    tl.orphans.push("word2", "caption:3");
+    tl.warnings.push('clip "tiny" is shorter than one frame and was dropped');
+    const plan = planCapcut(tl);
+    expect(plan.overlays.map((o) => o.elementId)).not.toContain("beep");
+    const byId = Object.fromEntries(plan.entries.map((e) => [e.id, e]));
+    expect(byId["word2"]).toMatchObject({ status: "skipped" });
+    expect(byId["caption:3"]).toMatchObject({ status: "skipped" });
+    expect(byId["clip:tiny"]).toMatchObject({ status: "skipped" });
+  });
+});

@@ -72,3 +72,20 @@ def test_colors_accept_short_hex_and_css_names_like_the_renderer():
     assert hex_rgb("white") == (1.0, 1.0, 1.0)
     with pytest.raises(ExportError, match="rgb"):
         to_hex("rgb(1, 2, 3)")
+
+
+def test_crop_moves_are_sampled_so_capcut_linear_keyframes_follow_the_renderer():
+    from adam_capcut.units import crop_rect_at, crop_sample_times, crop_transform
+    framing = {"mode": "crop", "rect": {"x": 0, "y": 0, "w": 1, "h": 1},
+               "keyframes": [{"atMs": 2000, "rect": {"x": 0.3, "y": 0.2, "w": 0.3, "h": 0.3}}]}
+    source, canvas = (1920, 1080), (1080, 1920)
+    times = crop_sample_times(framing, 0, 0, 3000)
+    assert times[0] == 0 and 2000 in times and times[-1] == 3000
+    assert len(times) > 10
+    scale = lambda ms: crop_transform(crop_rect_at(framing, ms), source, canvas)[0]
+    for a, b in zip(times, times[1:]):
+        mid = (a + b) / 2
+        linear = (scale(a) + scale(b)) / 2
+        assert abs(linear - scale(mid)) / scale(mid) < 0.01, (a, b)
+    # A clip without a move keeps two keyframes.
+    assert crop_sample_times({"mode": "crop", "rect": {"x": 0, "y": 0, "w": 1, "h": 1}}, 0, 500, 1500) == [500, 1500]

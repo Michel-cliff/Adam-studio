@@ -43,12 +43,21 @@ export function planCapcut(timeline: Timeline, nativeKinds: ReadonlySet<string> 
   for (const e of timeline.elements) {
     if (e.layer === "behind-subject") {
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "drawn behind the subject, baked into the main track" });
+    } else if (e.kind === "sfx") {
+      // Drawn as nothing: the exporter places it from the timeline's audio items.
     } else if (e.kind === "camera.zoom") {
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "screen zoom, baked into the main track" });
     } else if (!nativeKinds.has(e.kind)) {
       overlays.push({ elementId: e.id, fromFrame: e.fromFrame, durationFrames: e.durationFrames });
       entries.push({ id: e.id, kind: e.kind, status: "baked", reason: "no native CapCut equivalent: transparent overlay (MOV ProRes 4444)" });
     }
+  }
+  for (const o of timeline.orphans) {
+    entries.push({ id: o, kind: o.startsWith("caption:") ? "caption" : "element", status: "skipped", reason: "anchored to words cut from the edit: hidden" });
+  }
+  for (const w of timeline.warnings) {
+    const m = /^clip "(.+)" is shorter than one frame and was dropped$/.exec(w);
+    if (m) entries.push({ id: `clip:${m[1]}`, kind: "clip", status: "skipped", reason: "shorter than one frame: dropped" });
   }
   return { bakes, overlays, entries };
 }

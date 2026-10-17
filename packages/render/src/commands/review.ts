@@ -1,8 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, join } from "node:path";
 import {
-  applyPatch, indexWords, layoutStory, msToFrame, resolve, wordOutput,
+  applyPatch,
+  mergeStyle, indexWords, layoutStory, msToFrame, resolve, wordOutput,
   type Project, type Proposal, type StepId, type Timeline,
 } from "@adam-studio/model";
 import { ensureAnalysis } from "../analysis";
@@ -52,8 +53,23 @@ export function reviewWindow(project: Project, timeline: Timeline, proposal: Pro
 }
 
 /** Text safe for ffmpeg drawtext: letters (accents included), digits, spaces, commas, dots, dashes. */
-export function sheetLabel(key: string, label: string): string {
-  return `${key}  ${label.replace(/[^\p{L}\p{N} ,.\-]/gu, "")}`;
+export function sheetLabel(key: string, label: string, width = 30): string {
+  // The label reaches ffmpeg through a text file: punctuation is safe, only symbols and emoji are dropped.
+  const text = `${key}  ${label.replace(/[^\p{L}\p{N} ,.'’:!?\-]/gu, "")}`;
+  // Long labels wrap on up to three lines (the third ends with "..." when it still does not fit).
+  const lines: string[] = [];
+  for (const word of text.split(" ")) {
+    const last = lines[lines.length - 1];
+    if (last !== undefined && (last + " " + word).length <= width) lines[lines.length - 1] = `${last} ${word}`;
+    else lines.push(word);
+  }
+  if (lines.length > 3) lines.splice(2, lines.length - 2, `${lines.slice(2).join(" ").slice(0, width - 3)}...`);
+  return lines.map((l) => l.slice(0, width)).join("\n");
+}
+
+function fontPath(dir: string, file: string): string {
+  const f = expandEnv(file);
+  return isAbsolute(f) ? f : join(dir, f);
 }
 
 function drawtextPath(p: string): string {
@@ -63,12 +79,22 @@ function drawtextPath(p: string): string {
 function makeSheet(stills: { file: string; text: string }[], fontFile: string, out: string): void {
   const inputs = stills.flatMap((s) => ["-i", s.file]);
   const font = existsSync(fontFile) ? `fontfile='${drawtextPath(fontFile)}':` : "";
+  // The label goes through a text file: no escaping trouble with quotes or colons, and line breaks are kept.
+  const textFiles = stills.map((s, i) => {
+    const f = join(dirname(out), `.label-${i}.txt`);
+    writeFileSync(f, s.text);
+    return f;
+  });
   const labelled = stills
-    .map((s, i) => `[${i}:v]scale=360:-1,drawtext=${font}text='${s.text}':fontcolor=white:fontsize=22:box=1:boxcolor=black@0.6:boxborderw=8:x=12:y=12[v${i}]`)
+    .map((s, i) => `[${i}:v]scale=420:-1,drawtext=${font}textfile='${drawtextPath(textFiles[i]!)}':fontcolor=white:fontsize=22:line_spacing=4:box=1:boxcolor=black@0.6:boxborderw=8:x=12:y=12[v${i}]`)
     .join(";");
   const join_ = stills.length > 1 ? `;${stills.map((_, i) => `[v${i}]`).join("")}hstack=inputs=${stills.length}[out]` : "";
   const map = stills.length > 1 ? "[out]" : "[v0]";
-  execFileSync("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", `${labelled}${join_}`, "-map", map, "-frames:v", "1", out]);
+  try {
+    execFileSync("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", `${labelled}${join_}`, "-map", map, "-frames:v", "1", out]);
+  } finally {
+    for (const f of textFiles) rmSync(f, { force: true });
+  }
 }
 
 export async function reviewCommand(projectDir: string, opts: { step?: string; analyze?: boolean } = {}): Promise<string[]> {
@@ -105,7 +131,8 @@ export async function reviewCommand(projectDir: string, opts: { step?: string; a
     }
     makeSheet(
       entries.map((e) => ({ file: join(folder, e.still), text: sheetLabel(e.key, e.label) })),
-      expandEnv(style.fonts.caption.file),
+      // The font of the style as this project sees it (overrides merged), relative paths from the project.
+      fontPath(dir, mergeStyle(style, project.styleOverrides).fonts.caption.file),
       join(folder, "sheet.jpg"),
     );
     writeFileSync(join(folder, "index.json"), `${JSON.stringify({ proposal: p.id, step: p.step, reason: p.reason, variants: entries }, null, 2)}\n`);

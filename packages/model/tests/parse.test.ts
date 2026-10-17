@@ -72,7 +72,7 @@ describe("parseStyle", () => {
     expect(r.value.grade).toEqual({ warmth: 0, contrast: 0, saturation: 0, brightness: 0, vignette: 0 });
     expect(r.value.caption.maxCharsPerLine).toBe(22);
     expect(r.value.lint["9:16"].maxPauseMs).toBe(350);
-    expect(r.value.lint["9:16"].fillers).toContain("du coup");
+    expect(r.value.fillers.fr).toContain("du coup");
   });
 
   it("names a bad color", () => {

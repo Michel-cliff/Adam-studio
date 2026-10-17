@@ -5,6 +5,9 @@ from pathlib import Path
 
 from .build import build_script
 from .errors import ExportError
+
+# Front element kinds built as native CapCut items (titles and big words as texts, images as photos).
+NATIVE_FRONT_KINDS = {"title", "text.behindSubject", "image"}
 from .fonts import apply_fonts
 from .folder import MARKER, default_projects_root, prepare_project_dir
 from .lab import lab_path, load_lab
@@ -44,6 +47,10 @@ def export(project_dir, *, name: str | None = None, projects_root=None, prepare:
     root = Path(projects_root) if projects_root else default_projects_root()
     dest = prepare_project_dir(root, folder, lab_path() / profile.template_dir, replace=replace)
     media = copy_media(timeline, plan, prep, dest / "media")
+    # The front kinds the TS prepare step left to us must be ones this exporter builds natively.
+    unknown = sorted(set(plan.get("nativeKinds", NATIVE_FRONT_KINDS)) - NATIVE_FRONT_KINDS)
+    if unknown:
+        raise ExportError(f"the prepare step expects native CapCut items for {', '.join(unknown)}, which this exporter cannot build: update NATIVE_FRONT_KINDS on both sides")
     script, entries, roles = build_script(pjd, timeline, plan, media)
     profiles.write_profile_content(profile, dest, apply_fonts(script.dumps(profile), plan["fonts"], roles))
     (dest / MARKER).touch()

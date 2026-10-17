@@ -66,7 +66,7 @@ export function lint(project: Project, timeline: Timeline, options: LintOptions 
     const gap = b.startMs - a.endMs;
     if (gap > rules.maxPauseMs) warn("pace.pauses", `${gap} ms pause between "${a.text}" and "${b.text}"`, [a.id, b.id]);
   }
-  const fillers = new Set(rules.fillers.map(normalizeWord));
+  const fillers = new Set((rules.fillers ?? timeline.style.fillers?.[project.transcript.lang] ?? []).map(normalizeWord));
   for (let i = 0; i < kept.length; i++) {
     const one = normalizeWord(kept[i]!.text);
     if (fillers.has(one)) warn("pace.fillers", `Filler "${kept[i]!.text}" is still in the edit`, [kept[i]!.id]);

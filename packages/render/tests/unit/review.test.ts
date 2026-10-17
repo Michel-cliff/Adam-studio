@@ -61,8 +61,15 @@ describe("reviewWindow", () => {
 });
 
 describe("sheetLabel", () => {
-  it("keeps letters, accents, digits and spaces only", () => {
-    expect(sheetLabel("A", "magenta in front, élan: oui")).toBe("A  magenta in front, élan oui");
+  it("keeps letters, accents, digits, spaces and punctuation", () => {
+    expect(sheetLabel("A", "magenta in front, élan: oui")).toBe("A  magenta in front, élan: oui");
+  });
+  it("wraps long labels on up to three lines instead of cutting them", () => {
+    const lines = sheetLabel("B", "HUD window with a capture of the site, slow glitch intro and a counter").split("\n");
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines.length).toBeLessThanOrEqual(3);
+    for (const l of lines) expect(l.length).toBeLessThanOrEqual(30);
+    expect(lines.join(" ").replace(/\s+/g, " ")).toContain("counter");
   });
 });
 

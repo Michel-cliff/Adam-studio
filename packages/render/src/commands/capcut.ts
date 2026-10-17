@@ -63,6 +63,7 @@ export async function capcutPrepCommand(projectDir: string, opts: { out?: string
   const capcutPlan = {
     name: project.name, width: timeline.width, height: timeline.height, fps: timeline.fps,
     bakes, overlays, entries: plan.entries, sources: capcutSources(media),
+    nativeKinds: [...(opts.nativeKinds ?? NATIVE_FRONT_KINDS)].sort(),
     fonts: { caption: font("caption"), title: font("title") },
   };
   writeFileSync(join(out, "capcut-plan.json"), `${JSON.stringify(capcutPlan, null, 2)}\n`);

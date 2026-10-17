@@ -1,10 +1,12 @@
 """Copies every file the CapCut project uses into its media folder: the project stays self-contained."""
+import sys
 import json
 import shutil
 import subprocess
 from pathlib import Path
 
 from .errors import ExportError
+from .layout import main_track
 from .units import warmth_filter
 
 
@@ -41,15 +43,32 @@ def copy_media(timeline: dict, plan: dict, prep: Path, media_dir: Path) -> dict:
         return dst
 
     warmth = timeline["style"]["grade"]["warmth"]
-    for i, asset in enumerate(sorted({c["asset"] for c in timeline["clips"]}), 1):
+    # Takes whose every frame lies inside a bake never reach CapCut as video: no copy, no warming.
+    native = sorted({part["clip"]["asset"] for part in main_track(timeline, plan["bakes"]) if part["kind"] == "clip"})
+    warm_dir = prep.parent / ".capcut-warm"
+    for i, asset in enumerate(native, 1):
         video = sources.get(asset, {}).get("video")
         if not video or not Path(video).is_file():
             raise ExportError(f'no video file for asset "{asset}" in the prepared plan')
+        dst = media_dir / f"v{i:02d}.mp4"
         if warmth:
             # CapCut has no warmth keyframe: the take itself is warmed (baked stretches are warmed by Remotion).
-            dst = media_dir / f"v{i:02d}.mp4"
-            warm_copy(Path(video), dst, warmth, timeline["fps"])
+            # Warmed takes are kept between exports, keyed by the source file and the warmth.
+            st = Path(video).stat()
+            cached = warm_dir / f"{asset}-{st.st_size}-{int(st.st_mtime)}-{warmth:+.3f}.mp4"
+            if cached.is_file():
+                print(f"reusing the warmed take {asset} ({i}/{len(native)})", file=sys.stderr, flush=True)
+            else:
+                print(f"warming take {asset} ({i}/{len(native)})...", file=sys.stderr, flush=True)
+                warm_dir.mkdir(parents=True, exist_ok=True)
+                for old_file in warm_dir.glob(f"{asset}-*.mp4"):
+                    old_file.unlink()
+                tmp = cached.with_name(f"tmp-{cached.name}")
+                warm_copy(Path(video), tmp, warmth, timeline["fps"])
+                tmp.replace(cached)
+            shutil.copy2(cached, dst)
         else:
+            print(f"copying take {asset} ({i}/{len(native)})", file=sys.stderr, flush=True)
             dst = copy(Path(video), f"v{i:02d}")
         out["videos"][asset] = (dst, probe(dst))
     wanted = [e["props"]["asset"] for e in timeline["elements"] if e["kind"] == "image" and e["layer"] == "front"]
