@@ -40,6 +40,12 @@ export function Project({ name, jobId }: { name: string; jobId?: string }) {
   const [last, setLast] = useState<Request | null>(null);
   const [capcutName, setCapcutName] = useState(name);
   const [playing, setPlaying] = useState<string | null>(null);
+  const [allSeries, setAllSeries] = useState<{ name: string; error?: string }[]>([]);
+  const [series, setSeries] = useState("");
+  useEffect(() => { api<{ name: string; error?: string }[]>("/series").then((s) => { setAllSeries(s); setSeries(s.find((x) => !x.error)?.name ?? ""); }, () => {}); }, []);
+  const applySeries = async () => {
+    try { await api(`/projects/${enc(name)}/edit`, { method: "POST", body: { op: "apply_series", series } }); load(); } catch (e) { setError((e as Error).message); }
+  };
   const load = useCallback(() => api<ProjectView>(`/projects/${enc(name)}`).then((v) => { setView(v); setError(""); }, (e) => setError(e.message)), [name]);
   useEffect(() => {
     load();
@@ -75,6 +81,12 @@ export function Project({ name, jobId }: { name: string; jobId?: string }) {
           <label className="row" style={{ gap: 6 }}><span className="muted">CapCut name</span><input value={capcutName} onChange={(e) => setCapcutName(e.target.value)} /></label>
           <button disabled={busy} onClick={() => run({ action: "capcut", options: { name: capcutName } })}>Export to CapCut</button>
           <button disabled={busy} className="quiet" onClick={() => run({ action: "studio", options: {} })}>Open Studio</button>
+          {allSeries.length > 0 && (
+            <span className="row" style={{ gap: 6 }}>
+              <select value={series} onChange={(e) => setSeries(e.target.value)}>{allSeries.filter((s) => !s.error).map((s) => <option key={s.name}>{s.name}</option>)}</select>
+              <button className="quiet" disabled={!series} onClick={applySeries}>Apply series</button>
+            </span>
+          )}
         </div>
       </section>
       {current && <JobLog key={current} id={current} onEnd={() => load()} onRetry={last ? retry : undefined} />}

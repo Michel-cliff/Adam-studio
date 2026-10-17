@@ -10,7 +10,7 @@ import { BusyError, JobManager } from "./jobs";
 import { venvPython, WEB } from "./paths";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
-import { cutWordsIn, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
+import { applySeriesIn, cutWordsIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
 import { projectsRoot, SETTINGS_FILE, setProjectsRoot } from "./settings";
 import { watchProjects } from "./watch";
 
@@ -77,7 +77,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       if (!safeName(name)) throw new HttpError(400, `not a valid project name: "${name}"`);
       const dir = join(projectsRoot(settingsFile), name);
       if (existsSync(join(dir, "project.json"))) throw new HttpError(409, `a project "${name}" already exists: add rushes to it instead`);
-      return started(res, jobs.start(name, newProjectCommand(dir, checkVideos(b.videos), String(b.format ?? "9:16"), b.lang || undefined)));
+      return started(res, jobs.start(name, newProjectCommand(dir, checkVideos(b.videos), String(b.format ?? "9:16"), b.lang || undefined, b.series || undefined)));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)$/)) && method === "GET") {
       const { name } = existing(m[1]!);
@@ -124,6 +124,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
         case "cut_words": return send(res, 200, cutWordsIn(dir, Array.isArray(b.words) ? b.words.map(String) : []));
         case "tighten": return send(res, 200, tightenIn(dir, Number(b.minPauseMs ?? 600), Number(b.keepMs ?? 200)));
         case "undo": return send(res, 200, { message: undo(dir) });
+        case "apply_series": return send(res, 200, applySeriesIn(dir, String(b.series)));
         default: throw new HttpError(400, `unknown edit "${b.op}"`);
       }
     }
@@ -146,6 +147,7 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
       req.on("close", off);
       return;
     }
+    if (path === "/api/series" && method === "GET") return send(res, 200, listSeries());
     if (path === "/api/fs" && method === "GET") {
       try { return send(res, 200, listFolder(url.searchParams.get("path") || undefined)); } catch (e) { throw new HttpError(400, (e as Error).message); }
     }

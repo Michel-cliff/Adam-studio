@@ -16,3 +16,4 @@ export * from "./transcript";
 export * from "./workflow";
 export * from "./lint";
 export * from "./jsonschema";
+export * from "./series";

@@ -4,6 +4,8 @@ import {
   applyPatch, closeStep, decide, deepMerge, lint, parseProject, parseStyle, PatchSchema, ProposalSchema, resolve,
   type Decision, type Plain, type Project, type Style, type Timeline,
 } from "@adam-studio/model";
+import { applySeries } from "@adam-studio/model";
+import { listSeries, loadSeries } from "@adam-studio/render/src/series";
 import { cutWords, tightenPauses } from "./cuts";
 import { safeName } from "./guards";
 
@@ -29,12 +31,17 @@ export function loadRaw(dir: string): Plain {
 export function load(dir: string): { project: Project; style: Style } {
   const p = parseProject(loadRaw(dir));
   if (!p.ok) throw errors("project.json", p.errors);
+  return { project: p.value, style: loadStyle(dir, p.value) };
+}
+
+function loadStyle(dir: string, project: Project): Style {
+  const p = { value: project };
   const stylePath = isAbsolute(p.value.style) ? p.value.style : join(dir, p.value.style);
   let rawStyle: unknown;
   try { rawStyle = JSON.parse(readFileSync(stylePath, "utf8")); } catch (e) { throw new ToolError(`cannot read ${p.value.style}: ${(e as Error).message}`); }
   const s = parseStyle(rawStyle);
   if (!s.ok) throw errors(p.value.style, s.errors);
-  return { project: p.value, style: s.value };
+  return s.value;
 }
 
 export function lintLines(dir: string, project: Project, timeline: Timeline): string[] {
@@ -47,7 +54,7 @@ const historyDir = (dir: string) => join(dir, "renders", ".history");
 export function save(dir: string, input: unknown): { lint: string[]; durationMs: number } {
   const p = parseProject(input);
   if (!p.ok) throw errors("project.json", p.errors);
-  const { style } = load(dir);
+  const style = loadStyle(dir, p.value);
   let timeline: Timeline;
   try { timeline = resolve(p.value, style); } catch (e) { throw new ToolError(`the edit would not resolve: ${(e as Error).message}`); }
   const hist = historyDir(dir);
@@ -144,3 +151,11 @@ export function cutWordsIn(dir: string, words: string[]) {
 export function tightenIn(dir: string, minPauseMs: number, keepMs: number) {
   return edit(dir, (p) => { try { return tightenPauses(p, minPauseMs, keepMs); } catch (e) { throw new ToolError((e as Error).message); } });
 }
+
+export function applySeriesIn(dir: string, name: string) {
+  let found;
+  try { found = loadSeries(name); } catch (e) { throw new ToolError((e as Error).message); }
+  return edit(dir, (p) => applySeries(p, found.series, found.dir));
+}
+
+export { listSeries };

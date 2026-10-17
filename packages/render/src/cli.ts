@@ -6,6 +6,7 @@ import { addCommand, analyzeCommand, newCommand } from "./commands/new";
 import { renderCommand } from "./commands/render";
 import { reviewCommand } from "./commands/review";
 import { stillCommand } from "./commands/still";
+import { applySeriesTo, listSeries, saveSeries } from "./series";
 import { studioCommand } from "./commands/studio";
 import { CliError } from "./project-io";
 
@@ -18,8 +19,9 @@ const USAGE = `usage: npm run adam -- <command> <projectDir> [options]
   decide <dir> <proposalId> <A|B|C|reject|more> [--note "..."]
   studio <dir>
   still <dir> --at 500,1500 [--variant p1:B]
+  series list | series save <dir> <name> | series apply <dir> <name>
   capcut-prep <dir> [--out folder] [--force]
-  new <dir> <videos...> [--lang fr] [--format 9:16|16:9] [--style style.json] [--name name]
+  new <dir> <videos...> [--lang fr] [--format 9:16|16:9] [--style style.json] [--name name] [--series name]
   add <dir> <videos...> [--lang fr]
   analyze <dir> [--assets c01,c02] [--steps subject,plate] [--force]
   (render, review, studio and capcut-prep take --no-analyze)`;
@@ -41,16 +43,26 @@ async function main(argv: string[]): Promise<void> {
       assets: { type: "string" },
       steps: { type: "string" },
       "no-analyze": { type: "boolean" },
+      series: { type: "string" },
       at: { type: "string" },
       variant: { type: "string" },
     },
   });
   const [cmd, dirArg, ...rest] = positionals;
+  if (cmd === "series") {
+    if (dirArg === "list") { for (const s of listSeries()) console.log(s.error ? `${s.name} (invalid: ${s.error})` : `${s.name}  ${s.dir}`); return; }
+    const [dir, name] = rest;
+    if ((dirArg !== "save" && dirArg !== "apply") || !dir || !name) throw new CliError(USAGE);
+    if (dirArg === "save") saveSeries(resolve(base, dir), name);
+    else applySeriesTo(resolve(base, dir), name);
+    return;
+  }
   if (!cmd || !dirArg) throw new CliError(USAGE);
   const dir = resolve(base, dirArg);
   switch (cmd) {
     case "new":
       newCommand(dir, rest.map((v) => resolve(base, v)), { lang: values.lang, format: values.format, style: values.style ? resolve(base, values.style) : undefined, name: values.name });
+      if (values.series) applySeriesTo(dir, values.series);
       return;
     case "add":
       addCommand(dir, rest.map((v) => resolve(base, v)), { lang: values.lang });

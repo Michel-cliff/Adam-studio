@@ -36,6 +36,9 @@ export function NewProject({ addTo }: { addTo?: string }) {
   const [name, setName] = useState("");
   const [format, setFormat] = useState("9:16");
   const [lang, setLang] = useState("fr");
+  const [series, setSeries] = useState("");
+  const [allSeries, setAllSeries] = useState<{ name: string; error?: string }[]>([]);
+  useEffect(() => { api<{ name: string; error?: string }[]>("/series").then(setAllSeries, () => {}); }, []);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const submit = async () => {
@@ -45,7 +48,7 @@ export function NewProject({ addTo }: { addTo?: string }) {
       const project = addTo ?? name.trim();
       const { job } = addTo
         ? await api<{ job: { id: string } }>(`/projects/${enc(addTo)}/add`, { method: "POST", body })
-        : await api<{ job: { id: string } }>("/projects", { method: "POST", body: { ...body, name: project, format } });
+        : await api<{ job: { id: string } }>("/projects", { method: "POST", body: { ...body, name: project, format, series: series || undefined } });
       go(`#/p/${enc(project)}/job/${job.id}`);
     } catch (e) { setError((e as Error).message); setBusy(false); }
   };
@@ -56,6 +59,12 @@ export function NewProject({ addTo }: { addTo?: string }) {
         <div className="row" style={{ marginBottom: 12 }}>
           <input placeholder="Project name" value={name} onChange={(e) => setName(e.target.value)} />
           <select value={format} onChange={(e) => setFormat(e.target.value)}><option>9:16</option><option>16:9</option></select>
+          {allSeries.length > 0 && (
+            <select value={series} onChange={(e) => setSeries(e.target.value)}>
+              <option value="">No series</option>
+              {allSeries.filter((s) => !s.error).map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+            </select>
+          )}
         </div>
       )}
       <div className="row" style={{ marginBottom: 12 }}>

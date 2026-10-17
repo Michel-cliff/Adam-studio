@@ -8,7 +8,8 @@ import { listProjects } from "@adam-studio/web/server/projects";
 import { projectsRoot } from "@adam-studio/web/server/settings";
 import { z } from "zod";
 import { nameInRoot, runAction, runSetup, stills, tail } from "./run";
-import { closeCurrentStep, decideProposal, patchProject, projectDir, propose, setValue, ToolError, undo, updateItem } from "@adam-studio/web/server/store";
+import { saveSeries } from "@adam-studio/render/src/series";
+import { applySeriesIn, closeCurrentStep, listSeries, decideProposal, patchProject, projectDir, propose, setValue, ToolError, undo, updateItem } from "@adam-studio/web/server/store";
 import { projectSummary, transcriptText } from "./view";
 
 const INSTRUCTIONS = `Adam Studio: video edits described in project.json (story clips cut from takes, elements anchored on words,
@@ -19,6 +20,9 @@ Creative choices: propose one to three variants (A, B, C) with propose; the crea
 (npm run ui) or you render them with run review; decide records the choice. Guided steps run in order: cuts, structure,
 captions, hook, beats, visuals, sound, look. Every write is validated and backed up: undo puts back the previous version.
 Creator's taste so far: default effect animations feel a bit fast; lean slower.`;
+
+// stdout carries the protocol: library logs go to stderr.
+console.log = console.error;
 
 const server = new McpServer({ name: "adam-studio", version: "0.1.0" }, { instructions: INSTRUCTIONS });
 const root = () => projectsRoot();
@@ -78,6 +82,14 @@ tool("close_step", "Closes the current guided step when it needs no proposal, an
 
 tool("undo", "Puts back project.json as it was before the last change made through these tools.", { project },
   ({ project: p }) => text(undo(dirOf(p))));
+
+tool("list_series", "The series (shared style, assets and treatments) in ~/AdamStudioSeries.", {}, () => text(JSON.stringify(listSeries(), null, 1)));
+
+tool("apply_series", "Applies a series to a project: its style, assets and treatment elements (start, transition, beat, end); re-applying replaces them.",
+  { project, series: z.string() }, ({ project: p, series }) => written(applySeriesIn(dirOf(p), series)));
+
+tool("save_series", "Starts a series from a project: its style, the images and sounds its elements use, and its elements at 0 ms as the start treatment. Edit series.json afterwards for transition, beat and end treatments ({{beat.word}}, {{project.name}} placeholders).",
+  { project, series: z.string() }, ({ project: p, series }) => text(`saved in ${saveSeries(dirOf(p), series)}`));
 
 tool("still", "Renders frames of the edit (or of a variant, \"p1:B\") and shows them.",
   { project, atMs: z.array(z.number()).min(1).max(6), variant: z.string().optional() },

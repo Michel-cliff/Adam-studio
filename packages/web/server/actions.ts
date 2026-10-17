@@ -76,10 +76,11 @@ export function checkVideos(videos: unknown): string[] {
   return videos as string[];
 }
 
-export function newProjectCommand(dir: string, videos: string[], format: string, lang?: string): Command {
+export function newProjectCommand(dir: string, videos: string[], format: string, lang?: string, series?: string): Command {
   if (format !== "9:16" && format !== "16:9") throw new ActionError(`format must be 9:16 or 16:9, got "${format}"`);
   if (lang !== undefined && !LANG.test(lang)) throw new ActionError(`language is not valid: "${lang}"`);
-  return cliCommand(["new", dir, ...videos, "--format", format, ...(lang ? ["--lang", lang] : [])], "New project");
+  if (series !== undefined && /[\/:*?"<>|]/.test(series)) throw new ActionError(`not a valid series name: "${series}"`);
+  return cliCommand(["new", dir, ...videos, "--format", format, ...(lang ? ["--lang", lang] : []), ...(series ? [`--series=${series}`] : [])], "New project");
 }
 
 export function addCommand(dir: string, videos: string[], lang?: string): Command {
