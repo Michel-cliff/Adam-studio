@@ -12,6 +12,8 @@ Status: sub-project 1 (the edit core) in progress. See `docs/superpowers/specs/`
   transcript editing (`cutWords`, `restoreWords`, `trimToWords`), and the guided workflow (`decide()`).
 - `packages/render`: the Remotion composition and the `adam` CLI (`npm run adam -- render | review | decide |
   studio | capcut-prep <projectDir>`).
+- `packages/library`: the Inspiration folder, online asset search, Pinterest.
+- `packages/insights`: TikTok and Instagram numbers related to the edits.
 - `packages/mcp`: the MCP server Claude Code edits projects through.
 - `packages/web`: the control panel in the browser (`npm run ui`).
 - `py/analysis`: the analysis pipeline (`python -m adam_analysis run`), called by `npm run adam -- new | add | analyze`.
@@ -27,6 +29,29 @@ Requirements: Node 24 or later.
     npm run export-schemas -w @adam-studio/model
 
 Projects and media live outside this repository; never commit footage or third-party assets.
+
+## Editor, series, effects, library, insights
+
+- **Editor** (panel, project page, **Open editor**): live Remotion preview, timeline of clips, elements and captions
+  (click to inspect and edit as JSON; nudge clip in and out points), transcript (click a word to jump, shift+click to
+  select, **Cut** removes the passage and its pause, **Tighten** shortens long pauses), **Undo**.
+- **Series** (`~/AdamStudioSeries/<name>/series.json`): a style, shared assets and treatments, element templates
+  placed at the start, at each cut, at each structure beat and at the end, with `{{project.name}}`, `{{beat.word}}`
+  and the series' own vars. `npm run adam -- series list | save <dir> <name> | apply <dir> <name>`,
+  `adam new ... --series <name>`, the panel's **Apply series**, or the MCP tools. Re-applying replaces the series
+  elements and keeps the project's own.
+- **Effects**: element kinds `hud.panel` (typed HUD window), `hud.stat` (counter), `lottie`, `camera.zoom`
+  (punch-in on the main track), transitions `flash`, `whip`, `zoom`, and the style's `motion.speed` (below 1 slows
+  every animation). In CapCut, zooms and these transitions are baked into the main track, HUD and Lottie come as
+  transparent overlays.
+- **Library** (panel **Library**, MCP `search_assets`, `look_at`, `import_asset`): your Inspiration folder
+  (`~/AdamStudioInspiration`: folder and file names are tags, a `<file>.txt` adds notes) first, then Openverse, Pexels,
+  Pixabay and Freesound; imports land in `<project>/assets/` with `CREDITS.md`. Pinterest boards sync into the
+  Inspiration folder.
+- **Insights** (panel **Insights**, MCP `insights`): your TikTok and Instagram videos ranked by views and engagement,
+  linked to their projects, with medians by edit choice (length, cuts per minute, hook length, framework, series).
+
+Keys and sign-ins: [docs/connections.md](docs/connections.md).
 
 ## Claude Code (MCP)
 

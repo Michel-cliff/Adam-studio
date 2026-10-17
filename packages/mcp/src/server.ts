@@ -13,6 +13,7 @@ import { inspirationRoot, searchLocal, type LibraryKind } from "@adam-studio/lib
 import { searchOnline } from "@adam-studio/library/src/online";
 import { pinterestBoards, syncPinterestBoard } from "@adam-studio/library/src/pinterest";
 import { saveSeries } from "@adam-studio/render/src/series";
+import { insightsReport, refreshInsights } from "@adam-studio/web/server/insights-routes";
 import { addAssetIn, applySeriesIn, closeCurrentStep, listSeries, decideProposal, patchProject, projectDir, propose, setValue, ToolError, undo, updateItem } from "@adam-studio/web/server/store";
 import { projectSummary, transcriptText } from "./view";
 
@@ -126,6 +127,14 @@ tool("pinterest_boards", "The creator's Pinterest boards (official API; connect 
 
 tool("pinterest_sync", "Copies a Pinterest board's pins into the Inspiration folder (Pinterest/<board>/) with their notes.",
   { board: z.string() }, async ({ board }) => text(JSON.stringify(await syncPinterestBoard(board))));
+
+tool("insights", "The creator's published videos (TikTok, Instagram) ranked by views, with engagement, the features of the linked project's edit (length, cuts per minute, hook length, framework, series), and medians by edit choice. refresh: true fetches fresh numbers first.",
+  { refresh: z.boolean().optional() }, async ({ refresh }) => {
+    const notes = refresh ? await refreshInsights() : [];
+    const r = insightsReport(root());
+    const rows = r.rows.map(({ cover, url, ...rest }) => (void cover, void url, rest));
+    return text(JSON.stringify({ notes, fetchedAt: r.fetchedAt, status: r.status, compare: r.compare, videos: rows.slice(0, 60) }, null, 1));
+  });
 
 tool("still", "Renders frames of the edit (or of a variant, \"p1:B\") and shows them.",
   { project, atMs: z.array(z.number()).min(1).max(6), variant: z.string().optional() },
