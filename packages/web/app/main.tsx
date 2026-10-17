@@ -5,7 +5,7 @@ import { Home } from "./Home";
 import { Insights } from "./Insights";
 import { Library } from "./Library";
 import { NewProject } from "./NewProject";
-import { Project } from "./Project";
+import { Studio } from "./Studio";
 import "./style.css";
 
 function useHash(): string[] {
@@ -18,17 +18,26 @@ function useHash(): string[] {
 function App() {
   const [page, name, sub, id] = useHash();
   let body;
+  let shell = "";
   if (page === "new") body = <NewProject />;
   else if (page === "library") body = <Library />;
   else if (page === "insights") body = <Insights />;
   else if (page === "p" && name && sub === "add") body = <NewProject addTo={name} />;
-  else if (page === "p" && name && sub === "edit") body = <Editor key={name} name={name} />;
-  else if (page === "p" && name) body = <Project key={name} name={name} jobId={sub === "job" ? id : undefined} />;
+  else if (page === "p" && name && sub === "edit") { body = <Editor key={name} name={name} />; shell = "wide"; }
+  else if (page === "p" && name) { body = <Studio key={name} name={name} jobId={sub === "job" ? id : undefined} />; shell = "full"; }
   else body = <Home />;
+  const on = (p: string) => (page === p || (!page && p === "") ? "on" : "");
   return (
     <>
-      <header className="row"><a href="#/">Adam Studio</a><a href="#/library" style={{ fontWeight: 400 }}>Library</a><a href="#/insights" style={{ fontWeight: 400 }}>Insights</a></header>
-      <main className={page === "p" && sub === "edit" ? "wide" : ""}>{body}</main>
+      <header className="topbar">
+        <a className="brand" href="#/">Adam <b>Studio</b></a>
+        <nav className="nav">
+          <a className={on("") || (page === "p" ? "on" : "")} href="#/">Projects</a>
+          <a className={on("library")} href="#/library">Library</a>
+          <a className={on("insights")} href="#/insights">Insights</a>
+        </nav>
+      </header>
+      <main className={shell}>{body}</main>
     </>
   );
 }

@@ -2,41 +2,65 @@ import { useEffect, useState } from "react";
 import type { ProjectListItem } from "../server/types";
 import { api, enc } from "./api";
 
+type Item = ProjectListItem & { steps?: Record<string, string> };
+
 export function Home() {
-  const [projects, setProjects] = useState<ProjectListItem[] | null>(null);
+  const [projects, setProjects] = useState<Item[] | null>(null);
   const [root, setRoot] = useState("");
   const [error, setError] = useState("");
-  const load = () => api<ProjectListItem[]>("/projects").then(setProjects, (e) => setError(e.message));
+  const [editRoot, setEditRoot] = useState(false);
+  const load = async () => {
+    try {
+      const list = await api<Item[]>("/projects");
+      // The workflow of each project gives the progress dots.
+      const full = await Promise.all(list.map(async (p) => {
+        try { const v = await api<{ workflow: { steps: Record<string, string> } | null }>(`/projects/${enc(p.name)}`); return { ...p, steps: v.workflow?.steps }; } catch { return p; }
+      }));
+      setProjects(full);
+    } catch (e) { setError((e as Error).message); }
+  };
   useEffect(() => {
-    load();
+    void load();
     api<{ projectsRoot: string }>("/settings").then((s) => setRoot(s.projectsRoot));
     const ev = new EventSource("/api/events");
-    ev.onmessage = () => load();
+    ev.onmessage = () => void load();
     return () => ev.close();
   }, []);
-  const saveRoot = () => api("/settings", { method: "PUT", body: { projectsRoot: root } }).then(load, (e) => setError(e.message));
+  const saveRoot = () => api("/settings", { method: "PUT", body: { projectsRoot: root } }).then(() => { setEditRoot(false); void load(); }, (e) => setError(e.message));
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <h1>Projects</h1>
-        <a className="button" href="#/new">New project</a>
+      <div className="hero">
+        <div>
+          <span className="eyebrow">Adam Studio</span>
+          <h1 style={{ marginTop: 10 }}>What are we <em>cutting</em> today?</h1>
+          <p>Drop your rushes, let the first pass clear the way, then choose, step by step, between the options Claude proposes.</p>
+        </div>
       </div>
       {error && <p className="error">{error}</p>}
-      {projects?.length === 0 && <p className="muted">No project yet in this folder.</p>}
-      <div className="grid">
+      <div className="projects">
+        <a className="pcard new" href="#/new"><span><b>+</b>New project</span></a>
         {projects?.map((p) => (
-          <a key={p.name} className="card" href={`#/p/${enc(p.name)}`} style={{ color: "inherit", textDecoration: "none" }}>
-            <strong>{p.name}</strong>
-            <div className="muted">{p.format} · {p.takes} take{p.takes === 1 ? "" : "s"}</div>
-            <div className="muted">{p.lastRender ? `last render ${new Date(p.lastRender).toLocaleString()}` : "not rendered yet"}</div>
-            {!p.ok && <div className="error">{p.error}</div>}
+          <a key={p.name} className="pcard" href={`#/p/${enc(p.name)}`}>
+            <div className="thumb" style={{ backgroundImage: `url(/api/projects/${enc(p.name)}/thumb)` }} />
+            <div className="meta">
+              <h3>{p.name}</h3>
+              <div className="muted" style={{ fontSize: 12.5 }}>{p.format} · {p.takes} take{p.takes === 1 ? "" : "s"}{p.lastRender ? " · rendered" : ""}</div>
+              {p.steps && <div className="dots">{Object.values(p.steps).map((s, i) => <i key={i} className={s} />)}</div>}
+              {!p.ok && <div className="error" style={{ fontSize: 12 }}>invalid project.json</div>}
+            </div>
           </a>
         ))}
       </div>
-      <h2>Projects folder</h2>
-      <div className="row">
-        <input style={{ flex: 1, minWidth: 240 }} value={root} onChange={(e) => setRoot(e.target.value)} />
-        <button className="quiet" onClick={saveRoot}>Save</button>
+      <div className="row" style={{ marginTop: 36 }}>
+        <span className="muted">Projects folder:</span>
+        {editRoot ? (
+          <>
+            <input style={{ flex: 1, minWidth: 260 }} value={root} onChange={(e) => setRoot(e.target.value)} />
+            <button className="quiet" onClick={saveRoot}>Save</button>
+          </>
+        ) : (
+          <button className="ghost" onClick={() => setEditRoot(true)}>{root}</button>
+        )}
       </div>
     </>
   );

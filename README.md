@@ -68,15 +68,18 @@ Claude then reads projects (`get_project`, `get_transcript`, `get_reference`), e
 review and the CapCut export (`run`, shown live in the control panel when it is open). `npm run adam -- still <dir>
 --at 500,1500 [--variant p1:B]` renders the same frames from the terminal.
 
-## Control panel
+## Studio (in the browser)
 
     npm run ui
 
-or double-click `Adam Studio.cmd`. It opens `http://127.0.0.1:4317` (`ADAM_UI_PORT` changes the port) on your
-projects (`~/AdamStudioProjects`, changeable on the home page). Create a project from rushes picked on your disk,
-add rushes, then Analyze, Render, Review (watch the variants, choose, reject or ask for more), Export to CapCut and
-Open Studio, each with a live log and a Stop button. Edits still go through Claude; the page follows the changes to
-`project.json`. It only answers your own machine. Tests: `npm test -w packages/web`, `npm run test:e2e -w packages/web`.
+or double-click `Adam Studio.cmd`: `http://127.0.0.1:4317`. Your projects as cards; a project opens in the studio:
+a step rail (Rushes, Cuts, Story, Captions, Hook, Beats, Visuals, Sound, Type & look, Wrap), the live preview in the
+middle (switch between the edit as it stands and each variant), and the step's proposals on the right. Press **Run
+the first pass** on Rushes, then at each step choose a variant, ask for more options, or tell Claude what you want
+(suggestions or your own words): the studio runs Claude Code headless (`claude -p`, your subscription, the adam-studio
+tools only) and its proposal appears when it is written. **Wrap** renders the video and exports to CapCut.
+**Fine-tune the timeline** opens the timeline and transcript editor. Library and Insights are in the top bar.
+`ADAM_CLAUDE` points to another Claude Code executable. It only answers your own machine.
 
 ## Analysis
 

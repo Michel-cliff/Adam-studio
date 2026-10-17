@@ -48,6 +48,22 @@ function take(dir: string, raw: Raw, a: Raw): TakeView {
   return { id: a.id, file: basename(String(a.path)), durationMs, firstWords: words.slice(0, 12).map((w) => w.text).join(" "), cache: state };
 }
 
+/** What a variant changes, in a few words. */
+export function patchSummary(patch: Raw): string {
+  const parts: string[] = [];
+  if (patch.setStory) parts.push(`story: ${patch.setStory.length} clips`);
+  if (patch.setStructure) parts.push(`structure: ${patch.setStructure.framework}`);
+  if (patch.addElements?.length) {
+    const kinds: Record<string, number> = {};
+    for (const e of patch.addElements) kinds[e.kind] = (kinds[e.kind] ?? 0) + 1;
+    parts.push(Object.entries(kinds).map(([k, n]) => `${n} ${k}`).join(", "));
+  }
+  if (patch.removeElements?.length) parts.push(`removes ${patch.removeElements.length} element(s)`);
+  if (patch.addCaptions?.length) parts.push(`${patch.addCaptions.length} captions`);
+  if (patch.setStyle) parts.push(`style: ${Object.keys(patch.setStyle).join(", ")}`);
+  return parts.join(" · ") || "no change";
+}
+
 function proposal(dir: string, p: Raw): ProposalView {
   const status = typeof p.status === "object" && p.status?.accepted ? `accepted ${p.status.accepted}` : String(p.status ?? "pending");
   const folder = `renders/review/${p.id}`;
@@ -59,7 +75,8 @@ function proposal(dir: string, p: Raw): ProposalView {
       clips: Object.fromEntries((index.variants ?? []).map((v: Raw) => [v.key, `${folder}/${v.preview}`])),
     };
   } catch { /* no review rendered */ }
-  return { id: p.id, step: p.step, status, ...(p.reason ? { reason: p.reason } : {}), variants: (p.variants ?? []).map((v: Raw) => ({ key: v.key, label: v.label ?? "" })), review };
+  return { id: p.id, step: p.step, status, ...(p.reason ? { reason: p.reason } : {}), variants: (p.variants ?? []).map((v: Raw) => ({ key: v.key, label: v.label ?? "", summary: patchSummary(v.patch ?? {}) })), review,
+    ...(p.anchor ? { anchor: p.anchor } : {}), notes: (p.history ?? []).map((h: Raw) => h.note).filter(Boolean) };
 }
 
 export function projectView(root: string, name: string): Omit<ProjectView, "jobs"> | null {
@@ -72,5 +89,7 @@ export function projectView(root: string, name: string): Omit<ProjectView, "jobs
     takes: raw ? assets.map((a) => take(dir, raw, a)) : [],
     renders: renders(dir),
     proposals: Array.isArray(raw?.proposals) ? raw.proposals.map((p: Raw) => proposal(dir, p)) : [],
+    workflow: raw?.workflow ?? null,
+    durationMs: Array.isArray(raw?.story) ? raw.story.reduce((s: number, c: Raw) => s + (c.outMs - c.inMs), 0) : null,
   };
 }

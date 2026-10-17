@@ -8,12 +8,14 @@ import { listFolder } from "./fsbrowse";
 import { hostAllowed, inside, originAllowed, safeName } from "./guards";
 import { BusyError, JobManager } from "./jobs";
 import { venvPython, WEB } from "./paths";
+import { askCommand } from "./claude";
 import { insightsRoute } from "./insights-routes";
 import { libraryRoute } from "./library-routes";
 import { mediaFile, previewData } from "./preview";
 import { listProjects, projectView } from "./projects";
-import { applySeriesIn, cutWordsIn, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
+import { applySeriesIn, closeCurrentStep, cutWordsIn, decideProposal, firstPassIn, listSeries, loadRaw, patchProject, setValue, ToolError, tightenIn, undo, updateItem } from "./store";
 import { projectsRoot, SETTINGS_FILE, setProjectsRoot } from "./settings";
+import { thumbnail } from "./thumb";
 import { watchProjects } from "./watch";
 
 class HttpError extends Error { constructor(public status: number, message: string) { super(message); } }
@@ -113,12 +115,26 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/preview$/)) && method === "GET") {
       const { name, dir } = existing(m[1]!);
-      return send(res, 200, previewData(dir, name));
+      const proposal = url.searchParams.get("proposal");
+      const variant = url.searchParams.get("variant");
+      if (proposal && variant && !["A", "B", "C"].includes(variant)) throw new HttpError(400, "variant must be A, B or C");
+      return send(res, 200, previewData(dir, name, proposal && variant ? { proposal, variant: variant as "A" | "B" | "C" } : undefined));
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/media\/(.+)$/)) && (method === "GET" || method === "HEAD")) {
       const { name, dir } = existing(m[1]!);
       const file = mediaFile(dir, name, m[2]!.split("/").map(decodeURIComponent).join("/"));
       if (!file) throw new HttpError(404, "no such media");
+      return serveFile(req, res, file);
+    }
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/ask$/)) && method === "POST") {
+      const { name } = existing(m[1]!);
+      const b = await body(req);
+      return started(res, jobs.start(name, askCommand(name, String(b.step ?? ""), String(b.prompt ?? ""))));
+    }
+    if ((m = path.match(/^\/api\/projects\/([^/]+)\/thumb$/)) && method === "GET") {
+      const { dir } = existing(m[1]!);
+      const file = thumbnail(dir);
+      if (!file) throw new HttpError(404, "no picture yet");
       return serveFile(req, res, file);
     }
     if ((m = path.match(/^\/api\/projects\/([^/]+)\/raw$/)) && method === "GET") {
@@ -135,6 +151,12 @@ export function createApp(opts: { settingsFile?: string; jobs?: JobManager; capc
         case "tighten": return send(res, 200, tightenIn(dir, Number(b.minPauseMs ?? 600), Number(b.keepMs ?? 200)));
         case "undo": return send(res, 200, { message: undo(dir) });
         case "first_pass": return send(res, 200, firstPassIn(dir));
+        case "decide": {
+          const d = String(b.decision);
+          if (!["A", "B", "C", "reject", "more"].includes(d)) throw new HttpError(400, "decision must be A, B, C, reject or more");
+          return send(res, 200, decideProposal(dir, String(b.proposal), d as "A", b.note ? String(b.note) : undefined));
+        }
+        case "close_step": return send(res, 200, closeCurrentStep(dir));
         case "apply_series": return send(res, 200, applySeriesIn(dir, String(b.series)));
         default: throw new HttpError(400, `unknown edit "${b.op}"`);
       }
