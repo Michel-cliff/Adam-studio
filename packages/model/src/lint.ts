@@ -40,6 +40,12 @@ export function lint(project: Project, timeline: Timeline, options: LintOptions 
   const kept = keptWords(project);
   const { totalMs } = layoutStory(project);
 
+  // Clips cut past the end of their take (the render would freeze or go black there)
+  for (const c of project.story) {
+    const dur = project.assets.find((a) => a.id === c.asset)?.meta.durationMs;
+    if (dur !== undefined && c.outMs > dur + 50) warn("story.pastEnd", `clip "${c.id}" ends at ${c.outMs} ms, after the end of take "${c.asset}" (${dur} ms)`, [c.id], "error");
+  }
+
   // The first 3 seconds
   const textStarts = [
     ...timeline.elements.filter((e) => TEXT_KINDS.has(e.kind)).map((e) => e.fromFrame),

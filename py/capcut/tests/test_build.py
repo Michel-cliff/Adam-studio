@@ -82,3 +82,22 @@ def test_style_color_names_and_css_colors():
     assert color_of("accent", colors) == "#FF6B35"
     assert color_of("white", colors) == "#FFFFFF"
     assert color_of("#000", colors) == "#000000"
+
+
+def test_one_image_used_full_and_contained_gets_two_materials_with_their_own_sizes(lab, project, tmp_path):
+    _, profiles = lab
+    tl_file = project / "renders" / "capcut" / "timeline.json"
+    original = tl_file.read_text(encoding="utf-8")
+    tl = json.loads(original)
+    tl["elements"].append({"id": "pic2", "kind": "image", "layer": "front", "fromFrame": 100, "durationFrames": 10, "trimStartMs": 0,
+                           "x": 0.5, "y": 0.5, "props": {"asset": "m", "fit": "contain"}})
+    tl_file.write_text(json.dumps(tl, ensure_ascii=False), encoding="utf-8")
+    try:
+        content = content_of(export(project, name="two fits", projects_root=tmp_path, prepare=False), profiles)
+    finally:
+        tl_file.write_text(original, encoding="utf-8")
+    photos = [m for m in content["materials"]["videos"] if m["type"] == "photo"]
+    assert len({m["id"] for m in photos}) == 2
+    segs = [s for t in content["tracks"] if t["name"].startswith("front") for s in t["segments"]]
+    used = {s["material_id"] for s in segs}
+    assert {m["id"] for m in photos} <= used

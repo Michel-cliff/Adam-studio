@@ -1,4 +1,5 @@
 """Builds the CapCut script from the resolved timeline and the prepared plan."""
+import uuid
 from pathlib import Path
 
 from .layout import main_track
@@ -206,6 +207,9 @@ class Builder:
                 mat.width, mat.height = self.canvas
             else:
                 _, mat.width, mat.height = probe(path)
+                # The material id derives from the file name: a contained use of an image also used full would
+                # share the full one's material, and its size, in CapCut.
+                mat.material_id = uuid.uuid3(uuid.NAMESPACE_URL, f"{path}#contain").hex
             self.script.add_material(mat)
             self.materials[key] = mat
         scale = 1.0 if full else image_scale((mat.width, mat.height), self.canvas)

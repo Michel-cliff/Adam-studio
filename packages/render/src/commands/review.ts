@@ -30,7 +30,8 @@ export function reviewWindow(project: Project, timeline: Timeline, proposal: Pro
     }
   }
   if (anchorMs !== null) {
-    const center = msToFrame(anchorMs, fps);
+    // A variant can be shorter than the anchor, or an offset can point before the start: stay inside the edit.
+    const center = Math.min(last, Math.max(0, msToFrame(anchorMs, fps)));
     const half = Math.round(1.5 * fps);
     return {
       ranges: [[Math.max(0, center - half), Math.min(last, center + half)]],

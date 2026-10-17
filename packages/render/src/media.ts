@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, linkSync, mkdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, linkSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { dirname, extname, isAbsolute, join } from "node:path";
 import type { Project, Timeline } from "@adam-studio/model";
 import { slideWindows, subjectWindows } from "./lib/subject";
@@ -99,12 +99,23 @@ export function missingAnalysis(projectDir: string, project: Project, timeline: 
     videos.add(c.asset);
     if (c.framing.mode === "split") videos.add(c.framing.asset);
   }
-  for (const id of videos) if (!has(id, "edit.mp4")) out.push({ asset: id, step: "edit" });
+  for (const id of videos) if (!has(id, "edit.mp4") || sourceChanged(projectDir, project, id)) out.push({ asset: id, step: "edit" });
   for (const id of new Set(subjectWindows(timeline).map((w) => w.asset))) if (!has(id, "subject.webm")) out.push({ asset: id, step: "subject" });
   const clipAsset = new Map(timeline.clips.map((c) => [c.id, c.asset]));
   for (const id of new Set(slideWindows(timeline).map((w) => clipAsset.get(w.clipId)!))) if (!has(id, "plate.png")) out.push({ asset: id, step: "plate" });
-  void project;
   return out;
+}
+
+/** True when the take's source file differs (size or date) from the one the cache was made from. */
+export function sourceChanged(projectDir: string, project: Project, asset: string): boolean {
+  const path = project.assets.find((a) => a.id === asset)?.path;
+  if (!path) return false;
+  const file = isAbsolute(path) ? path : join(projectDir, path);
+  let stamp: { size: number; mtimeMs: number } | undefined;
+  try { stamp = JSON.parse(readFileSync(join(projectDir, "cache", asset, "manifest.json"), "utf8")).source ?? undefined; } catch { return false; }
+  if (!stamp || !existsSync(file)) return false;
+  const st = statSync(file);
+  return st.size !== stamp.size || Math.floor(st.mtimeMs) !== stamp.mtimeMs;
 }
 
 /** Recreates the public dir with hard links to the planned files (copies when linking is not possible). */

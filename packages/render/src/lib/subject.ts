@@ -65,3 +65,8 @@ export function slideOffset(w: SlideWindow, frame: number, width: number): { dx:
   const speed = (dist * 3 * (1 - p) ** 2) / n;
   return { dx: dist * (1 - p) ** 3, blurPx: Math.min(MAX_BLUR_PX, 0.55 * speed) };
 }
+
+/** An SVG filter id for a slide's blur: clip ids may hold spaces or parentheses, which break url(#id). */
+export function slideFilterId(clipId: string, frame: number): string {
+  return `adam-slide-${clipId.replace(/[^A-Za-z0-9_-]/g, (c) => `_${c.codePointAt(0)!.toString(16)}`)}-${frame}`;
+}

@@ -114,6 +114,16 @@ function checkCaption(c: Caption, path: string, ctx: Ctx): void {
   }
 }
 
+function checkBeat(b: { from: string; to: string }, path: string, ctx: Ctx): void {
+  checkWord(b.from, `${path}.from`, ctx);
+  checkWord(b.to, `${path}.to`, ctx);
+  const from = ctx.words.get(b.from);
+  const to = ctx.words.get(b.to);
+  if (from && to && from.asset === to.asset && to.index < from.index) {
+    ctx.errors.push({ path: `${path}.to`, message: "the beat ends before it starts" });
+  }
+}
+
 function checkVariant(v: Variant, path: string, ctx: Ctx): Variant {
   const patch = { ...v.patch };
   if (patch.addElements) {
@@ -121,10 +131,8 @@ function checkVariant(v: Variant, path: string, ctx: Ctx): Variant {
   }
   patch.addCaptions?.forEach((c, k) => checkCaption(c, `${path}.addCaptions[${k}]`, ctx));
   patch.setStory?.forEach((c, k) => checkClip(c, `${path}.setStory[${k}]`, ctx));
-  patch.setStructure?.beats.forEach((b, k) => {
-    checkWord(b.from, `${path}.setStructure.beats[${k}].from`, ctx);
-    checkWord(b.to, `${path}.setStructure.beats[${k}].to`, ctx);
-  });
+  if (patch.setStory) duplicates(patch.setStory.map((c) => c.id), `${path}.setStory`, ctx.errors);
+  patch.setStructure?.beats.forEach((b, k) => checkBeat(b, `${path}.setStructure.beats[${k}]`, ctx));
   return { ...v, patch };
 }
 
@@ -149,12 +157,11 @@ export function parseProject(input: unknown): ParseResult<Project> {
   project.story.forEach((c, i) => checkClip(c, `story[${i}]`, ctx));
   const elements = project.elements.map((el, i) => checkElement(el, `elements[${i}]`, ctx));
   project.captions.forEach((c, i) => checkCaption(c, `captions[${i}]`, ctx));
-  project.structure?.beats.forEach((b, i) => {
-    checkWord(b.from, `structure.beats[${i}].from`, ctx);
-    checkWord(b.to, `structure.beats[${i}].to`, ctx);
-  });
+  project.structure?.beats.forEach((b, i) => checkBeat(b, `structure.beats[${i}]`, ctx));
   const proposals = project.proposals.map((p, i) => {
     if (p.anchor) checkAnchor(p.anchor, `proposals[${i}].anchor`, ctx);
+    const keys = p.variants.map((v) => v.key);
+    keys.forEach((k, j) => { if (keys.indexOf(k) !== j) errors.push({ path: `proposals[${i}].variants[${j}].key`, message: `duplicate variant key "${k}"` }); });
     return { ...p, variants: p.variants.map((v, j) => checkVariant(v, `proposals[${i}].variants[${j}].patch`, ctx)) };
   });
 

@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Project, Timeline } from "@adam-studio/model";
-import { missingAnalysis } from "./media";
+import { missingAnalysis, sourceChanged } from "./media";
 import { CliError } from "./project-io";
 import type { Take } from "./takes";
 
@@ -56,6 +56,10 @@ export function ensureAnalysis(projectDir: string, project: Project, timeline: T
   const paths = new Map(project.assets.map((a) => [a.id, a.path]));
   for (const step of ["edit", "subject", "plate"] as const) {
     const ids = missing.filter((m) => m.step === step).map((m) => m.asset);
-    if (ids.length) run(projectDir, Object.fromEntries(ids.map((id) => [id, paths.get(id)!])), [step], { fps: project.canvas.fps });
+    // A missing or outdated edit.mp4 brings the other import steps with it (fresh ones are skipped by the runner).
+    if (ids.length) run(projectDir, Object.fromEntries(ids.map((id) => [id, paths.get(id)!])), step === "edit" ? CHEAP_STEPS : [step], { fps: project.canvas.fps });
+  }
+  for (const id of missing.filter((m) => m.step === "edit").map((m) => m.asset)) {
+    if (sourceChanged(projectDir, project, id)) console.log(`note: the source of "${id}" changed since its import; its words in project.json still come from the old take (re-add it to update them)`);
   }
 }

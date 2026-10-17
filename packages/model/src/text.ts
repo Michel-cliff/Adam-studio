@@ -24,8 +24,10 @@ export function findHighlights(text: string, phrases: string[]): { ranges: [numb
   const ranges: [number, number][] = [];
   const missing: string[] = [];
   for (const phrase of phrases) {
-    const pattern = phrase.trim().split(/\s+/).map(escapeRegExp).join("[ \\n]+");
-    const m = new RegExp(pattern, "i").exec(text);
+    if (!phrase.trim()) continue;
+    // Whole words only: "mar" does not light up inside "marché".
+    const pattern = `(?<![\\p{L}\\p{N}])${phrase.trim().split(/\s+/).map(escapeRegExp).join("[ \\n]+")}(?![\\p{L}\\p{N}])`;
+    const m = new RegExp(pattern, "iu").exec(text);
     if (m) ranges.push([m.index, m.index + m[0].length]);
     else missing.push(phrase);
   }

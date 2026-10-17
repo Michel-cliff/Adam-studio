@@ -1,4 +1,5 @@
 import { src } from "../lib/src";
+import { slideFilterId } from "../lib/subject";
 import type { FC } from "react";
 import { AbsoluteFill, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Timeline, TimelineClip } from "@adam-studio/model";
@@ -35,7 +36,7 @@ const SubjectFrame: FC<{ clip: TimelineClip; files: MediaFiles; startFrame: numb
   const trimBefore = Math.round((clip.sourceInMs * fps) / 1000) + (startFrame - clip.fromFrame);
   const slide = slides.find((s) => abs >= s.fromFrame && abs < s.toFrame);
   const { dx, blurPx } = slide ? slideOffset(slide, abs, width) : { dx: 0, blurPx: 0 };
-  const blurId = `adam-slide-${clip.id}-${abs}`;
+  const blurId = slideFilterId(clip.id, abs);
   return (
     <AbsoluteFill style={{ transform: `translateX(${dx}px)`, filter: blurPx > 0.5 ? `url(#${blurId})` : undefined }}>
       {blurPx > 0.5 ? (

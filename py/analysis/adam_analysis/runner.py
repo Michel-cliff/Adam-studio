@@ -20,7 +20,9 @@ def _edit(cache: Path, source: Path, ctx: Ctx) -> None:
     edit_step.make_edit(source, tmp, ctx["fps"])
     tmp.replace(cache / "edit.mp4")
     info = probe(cache / "edit.mp4") | {"sourceHasAudio": probe(source)["hasAudio"]}
-    (cache / "probe.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
+    tmp_probe = cache / "tmp-probe.json"
+    tmp_probe.write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
+    tmp_probe.replace(cache / "probe.json")
 
 
 def _proxy(cache: Path, source: Path, ctx: Ctx) -> None:

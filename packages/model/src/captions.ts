@@ -24,6 +24,9 @@ export function resolveCaptions(ctx: ResolveContext): TimelineCaption[] {
       return;
     }
     const text = wrapCaption(c.text, ctx.style.caption.maxCharsPerLine);
+    if (text.split("\n").some((line) => line.length > ctx.style.caption.maxCharsPerLine * 1.25)) {
+      ctx.warnings.push(`caption ${i}: too long for two lines of ${ctx.style.caption.maxCharsPerLine} characters ("${c.text.slice(0, 40)}..."): split it`);
+    }
     const { ranges, missing } = findHighlights(text, c.highlight);
     for (const m of missing) ctx.warnings.push(`caption ${i}: highlight "${m}" not found in "${c.text}"`);
     pieces.forEach(([s, e], k) => {
