@@ -9,3 +9,4 @@ __pycache__/
 .worktrees/
 .venv/
 *.egg-info/
+packages/web/dist/

@@ -1,0 +1,26 @@
+{
+  "name": "@adam-studio/web",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run tests/unit",
+    "test:e2e": "vitest run tests/e2e --testTimeout=900000 --hookTimeout=900000",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@adam-studio/model": "0.1.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "^7.0.2",
+    "vite": "8.3.4",
+    "vitest": "^5.0.5"
+  }
+}

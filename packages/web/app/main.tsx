@@ -1,0 +1,30 @@
+import { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { Home } from "./Home";
+import { NewProject } from "./NewProject";
+import { Project } from "./Project";
+import "./style.css";
+
+function useHash(): string[] {
+  const read = () => location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
+  const [parts, setParts] = useState(read);
+  useEffect(() => { const on = () => setParts(read()); addEventListener("hashchange", on); return () => removeEventListener("hashchange", on); }, []);
+  return parts;
+}
+
+function App() {
+  const [page, name, sub, id] = useHash();
+  let body;
+  if (page === "new") body = <NewProject />;
+  else if (page === "p" && name && sub === "add") body = <NewProject addTo={name} />;
+  else if (page === "p" && name) body = <Project key={name} name={name} jobId={sub === "job" ? id : undefined} />;
+  else body = <Home />;
+  return (
+    <>
+      <header><a href="#/">Adam Studio</a></header>
+      <main>{body}</main>
+    </>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(<App />);

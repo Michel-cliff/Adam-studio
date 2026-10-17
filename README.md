@@ -12,6 +12,7 @@ Status: sub-project 1 (the edit core) in progress. See `docs/superpowers/specs/`
   transcript editing (`cutWords`, `restoreWords`, `trimToWords`), and the guided workflow (`decide()`).
 - `packages/render`: the Remotion composition and the `adam` CLI (`npm run adam -- render | review | decide |
   studio | capcut-prep <projectDir>`).
+- `packages/web`: the control panel in the browser (`npm run ui`).
 - `py/analysis`: the analysis pipeline (`python -m adam_analysis run`), called by `npm run adam -- new | add | analyze`.
 - `py/capcut`: the CapCut exporter (`python -m adam_capcut export <projectDir>`).
 
@@ -25,6 +26,16 @@ Requirements: Node 24 or later.
     npm run export-schemas -w @adam-studio/model
 
 Projects and media live outside this repository; never commit footage or third-party assets.
+
+## Control panel
+
+    npm run ui
+
+or double-click `Adam Studio.cmd`. It opens `http://127.0.0.1:4317` (`ADAM_UI_PORT` changes the port) on your
+projects (`~/AdamStudioProjects`, changeable on the home page). Create a project from rushes picked on your disk,
+add rushes, then Analyze, Render, Review (watch the variants, choose, reject or ask for more), Export to CapCut and
+Open Studio, each with a live log and a Stop button. Edits still go through Claude; the page follows the changes to
+`project.json`. It only answers your own machine. Tests: `npm test -w packages/web`, `npm run test:e2e -w packages/web`.
 
 ## Analysis
 

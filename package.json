@@ -2,11 +2,16 @@
   "name": "adam-studio",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*"],
-  "engines": { "node": ">=24" },
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "adam": "tsx packages/render/src/cli.ts"
+    "adam": "tsx packages/render/src/cli.ts",
+    "ui": "tsx packages/web/server/main.ts"
   }
 }
