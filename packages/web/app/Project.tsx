@@ -43,6 +43,15 @@ export function Project({ name, jobId }: { name: string; jobId?: string }) {
   const [allSeries, setAllSeries] = useState<{ name: string; error?: string }[]>([]);
   const [series, setSeries] = useState("");
   useEffect(() => { api<{ name: string; error?: string }[]>("/series").then((s) => { setAllSeries(s); setSeries(s.find((x) => !x.error)?.name ?? ""); }, () => {}); }, []);
+  const [passNote, setPassNote] = useState("");
+  const runFirstPass = async () => {
+    try {
+      const r = await api<{ summary: { fillers: number; retakes: unknown[]; captions: number; proposals: string[]; skipped: string[] } }>(`/projects/${enc(name)}/edit`, { method: "POST", body: { op: "first_pass" } });
+      const s = r.summary;
+      setPassNote(`First pass: ${s.fillers} fillers, ${s.retakes.length} failed takes, ${s.captions} captions. Proposals: ${s.proposals.join(", ") || "none"}${s.skipped.length ? ` (skipped: ${s.skipped.join("; ")})` : ""}. For the creative steps (structure, hook, visuals, sound, look), ask Claude Code: "first pass on ${name}".`);
+      load();
+    } catch (e) { setError((e as Error).message); }
+  };
   const applySeries = async () => {
     try { await api(`/projects/${enc(name)}/edit`, { method: "POST", body: { op: "apply_series", series } }); load(); } catch (e) { setError((e as Error).message); }
   };
@@ -75,6 +84,7 @@ export function Project({ name, jobId }: { name: string; jobId?: string }) {
       {view && !view.ok && <p className="error">{view.error}</p>}
       <section>
         <div className="row">
+          <button disabled={busy} onClick={runFirstPass}>First pass</button>
           <button disabled={busy} onClick={() => run({ action: "analyze", options: {} })}>Analyze</button>
           <button disabled={busy} onClick={() => run({ action: "render", options: {} })}>Render</button>
           <button disabled={busy} onClick={() => run({ action: "review", options: {} })}>Review</button>
@@ -89,6 +99,7 @@ export function Project({ name, jobId }: { name: string; jobId?: string }) {
           )}
         </div>
       </section>
+      {passNote && <p className="muted">{passNote}</p>}
       {current && <JobLog key={current} id={current} onEnd={() => load()} onRetry={last ? retry : undefined} />}
       {view && view.takes.length > 0 && (
         <>

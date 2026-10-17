@@ -35,6 +35,11 @@ Projects and media live outside this repository; never commit footage or third-p
 - **Editor** (panel, project page, **Open editor**): live Remotion preview, timeline of clips, elements and captions
   (click to inspect and edit as JSON; nudge clip in and out points), transcript (click a word to jump, shift+click to
   select, **Cut** removes the passage and its pause, **Tighten** shortens long pauses), **Undo**.
+- **First pass** (panel button, MCP `first_pass`): proposals for the cuts (A tight: fillers of the transcript's language,
+  failed takes where a sentence restarts after a pause or a take change, pauses over 0.4 s; B light) and the captions
+  (A two lines with a highlighted word, B one line). From Claude Code, "first pass on <project>" also returns a brief
+  (the edit as sentences with word ids, frameworks, Insights, Inspiration) and Claude writes the structure, hook,
+  beats, visuals, sound and look proposals. Review and choose in the panel; nothing is applied before a decision.
 - **Series** (`~/AdamStudioSeries/<name>/series.json`): a style, shared assets and treatments, element templates
   placed at the start, at each cut, at each structure beat and at the end, with `{{project.name}}`, `{{beat.word}}`
   and the series' own vars. `npm run adam -- series list | save <dir> <name> | apply <dir> <name>`,

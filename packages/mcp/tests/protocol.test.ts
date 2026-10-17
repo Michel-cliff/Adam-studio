@@ -17,7 +17,7 @@ describe("MCP server over stdio", () => {
       const names = (await client.listTools()).tools.map((t) => t.name).sort();
       expect(names).toEqual(["add_rushes", "apply_patch", "close_step", "create_project", "decide", "get_project", "get_reference", "get_transcript",
         "apply_series", "list_projects", "list_series", "propose", "run", "save_series", "set_value", "still", "undo", "update_item",
-        "search_assets", "look_at", "import_asset", "pinterest_boards", "pinterest_sync", "insights"].sort());
+        "search_assets", "look_at", "import_asset", "pinterest_boards", "pinterest_sync", "insights", "first_pass"].sort());
       const summary = await client.callTool({ name: "get_project", arguments: { project: dir } });
       expect((summary.content as { text: string }[])[0]!.text).toContain('"durationMs"');
       const bad = await client.callTool({ name: "set_value", arguments: { project: dir, pointer: "/canvas/fps", value: "fast" } });

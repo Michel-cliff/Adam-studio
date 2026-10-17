@@ -7,6 +7,7 @@ import {
 import { applySeries } from "@adam-studio/model";
 import { listSeries, loadSeries } from "@adam-studio/render/src/series";
 import { cutWords, tightenPauses } from "./cuts";
+import { firstPass, type FirstPassSummary } from "./firstpass";
 import { safeName } from "./guards";
 
 export class ToolError extends Error {}
@@ -166,4 +167,14 @@ export function addAssetIn(dir: string, asset: { id: string; kind: "video" | "au
     if (p.assets.some((a) => a.id === asset.id)) throw new ToolError(`asset id "${asset.id}" is taken: pick another id`);
     return { ...p, assets: [...p.assets, { ...asset, meta: {} }] };
   });
+}
+
+/** The mechanical first pass (cuts and captions proposals), validated and backed up like every write. */
+export function firstPassIn(dir: string): { summary: FirstPassSummary; lint: string[]; durationMs: number } {
+  const { project, style } = load(dir);
+  let summary!: FirstPassSummary;
+  const r = edit(dir, () => {
+    try { const out = firstPass(project, style); summary = out.summary; return out.project; } catch (e) { throw new ToolError((e as Error).message); }
+  });
+  return { summary, ...r };
 }

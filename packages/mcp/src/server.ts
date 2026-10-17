@@ -13,8 +13,9 @@ import { inspirationRoot, searchLocal, type LibraryKind } from "@adam-studio/lib
 import { searchOnline } from "@adam-studio/library/src/online";
 import { pinterestBoards, syncPinterestBoard } from "@adam-studio/library/src/pinterest";
 import { saveSeries } from "@adam-studio/render/src/series";
+import { firstPassBrief } from "./brief";
 import { insightsReport, refreshInsights } from "@adam-studio/web/server/insights-routes";
-import { addAssetIn, applySeriesIn, closeCurrentStep, listSeries, decideProposal, patchProject, projectDir, propose, setValue, ToolError, undo, updateItem } from "@adam-studio/web/server/store";
+import { addAssetIn, applySeriesIn, firstPassIn, closeCurrentStep, listSeries, decideProposal, patchProject, projectDir, propose, setValue, ToolError, undo, updateItem } from "@adam-studio/web/server/store";
 import { projectSummary, transcriptText } from "./view";
 
 const INSTRUCTIONS = `Adam Studio: video edits described in project.json (story clips cut from takes, elements anchored on words,
@@ -134,6 +135,13 @@ tool("insights", "The creator's published videos (TikTok, Instagram) ranked by v
     const r = insightsReport(root());
     const rows = r.rows.map(({ cover, url, ...rest }) => (void cover, void url, rest));
     return text(JSON.stringify({ notes, fetchedAt: r.fetchedAt, status: r.status, compare: r.compare, videos: rows.slice(0, 60) }, null, 1));
+  });
+
+tool("first_pass", "Automatic first pass of a project: writes the mechanical proposals (cuts: fillers, failed takes, dead air; captions) and returns a brief (the edit as sentences with word ids, frameworks, Insights, Inspiration, style) for you to write the creative proposals (structure, hook, beats, visuals, sound, look) with propose.",
+  { project }, ({ project: p }) => {
+    const dir = dirOf(p);
+    const r = firstPassIn(dir);
+    return text(`${firstPassBrief(dir, root(), r.summary)}\n\nlint now: ${r.lint.join(" | ") || "clean"}`);
   });
 
 tool("still", "Renders frames of the edit (or of a variant, \"p1:B\") and shows them.",
